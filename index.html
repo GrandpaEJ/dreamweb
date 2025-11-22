@@ -1,34 +1,454 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="A Flutter-like Python web framework - build beautiful UIs without HTML/CSS/JS">
-    <title>DreamWeb Documentation</title>
+    <title>DreamWeb Documentation - v0.1.1</title>
     <meta name="keywords" content="dreamweb, python, web framework, flutter, ui">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<script>hljs.highlightAll();</script>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            background: #0f172a;
+            color: #cbd5e1;
+            line-height: 1.6;
         }
-        #app {
-            width: 100%;
-            min-height: 100vh;
+
+        .header {
+            background: #1e293b;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .version {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .header .tagline {
+            font-size: 1.5rem;
+            color: #cbd5e1;
+            margin-top: 1rem;
+        }
+
+        .nav {
+            background: #1e293b;
+            padding: 1.5rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 1rem;
+            font-size: 1.1rem;
+            transition: color 0.2s;
+        }
+
+        .nav a:hover {
+            color: #60a5fa;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .section {
+            margin-bottom: 5rem;
+        }
+
+        .section h2 {
+            font-size: 2.5rem;
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+
+        .section h3 {
+            font-size: 1.8rem;
+            color: white;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .section p {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .feature {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+        }
+
+        .feature h4 {
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature p {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        pre {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        .widget-item {
+            background: #1e293b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .widget-item h4 {
+            color: #3b82f6;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .widget-item p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .footer {
+            background: #1e293b;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 1px solid #334155;
+            margin-top: 5rem;
+        }
+
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
         }
     </style>
 </head>
+
 <body>
-    <div id="app"></div>
-    <script src="dreamweb.js"></script>
+    <div class="header">
+        <h1>🚀 DreamWeb</h1>
+        <div class="version">v0.1.1</div>
+        <div class="tagline">A Flutter-like Python Web Framework</div>
+    </div>
+
+    <nav class="nav">
+        <a href="#intro">📚 Introduction</a>
+        <a href="#getting-started">🚀 Getting Started</a>
+        <a href="#core-concepts">💡 Core Concepts</a>
+        <a href="#widgets">🎨 Widgets</a>
+        <a href="#cli">⌨️ CLI</a>
+        <a href="#seo">🔍 SEO</a>
+        <a href="#deployment">🌐 Deploy</a>
+    </nav>
+
+    <div class="container">
+        <!-- Introduction -->
+        <section id="intro" class="section">
+            <h2>📚 Introduction</h2>
+            <p>Build beautiful web UIs using pure Python with a Flutter-style API. No HTML, CSS, or JavaScript knowledge
+                required!</p>
+
+            <h3>✨ Features</h3>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h4>🎨 Flutter-Style Widgets</h4>
+                    <p>Familiar API with Container, Row, Column, Text, Button, etc.</p>
+                </div>
+                <div class="feature">
+                    <h4>🎯 Parameter-Based Styling</h4>
+                    <p>Style everything with simple parameters, no CSS needed</p>
+                </div>
+                <div class="feature">
+                    <h4>⚡ Hot Reload</h4>
+                    <p>See changes instantly in dev mode</p>
+                </div>
+                <div class="feature">
+                    <h4>🔄 Reactive State</h4>
+                    <p>Built-in state management with automatic re-rendering</p>
+                </div>
+                <div class="feature">
+                    <h4>🔍 SEO Friendly</h4>
+                    <p>Built-in support for metadata and head tags</p>
+                </div>
+                <div class="feature">
+                    <h4>📦 Single Build Output</h4>
+                    <p>Compiles to index.html + dreamweb.js</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Getting Started -->
+        <section id="getting-started" class="section">
+            <h2>🚀 Getting Started</h2>
+
+            <h3>Installation</h3>
+            <p>Install DreamWeb using pip:</p>
+            <pre><code class="language-bash">pip install dreamweb</code></pre>
+
+            <h3>Create Your First App</h3>
+            <p>You can create a new project using the CLI:</p>
+            <pre><code class="language-bash">dreamweb create my_app
+cd my_app</code></pre>
+
+            <h3>Or create manually</h3>
+            <p>Create a file named main.py:</p>
+            <pre><code class="language-python">from dreamweb import App
+from dreamweb.common import *
+
+class CounterApp(App):
+    def __init__(self):
+        super().__init__(
+            title="Counter App",
+            description="My first DreamWeb app"
+        )
+        self.count = State(0)
+    
+    def build(self):
+        return Container(
+            width="100%",
+            height="100vh",
+            background="gradient-purple-pink",
+            align="center",
+            justify="center",
+            children=[
+                Text(f"Count: {self.count.value}", size="2xl"),
+                Button(
+                    text="Increment",
+                    on_click=lambda: self.count.set(self.count.value + 1)
+                )
+            ]
+        )
+
+if __name__ == "__main__":
+    CounterApp().run(dev=True)</code></pre>
+
+            <h3>Run the App</h3>
+            <p>Start the development server:</p>
+            <pre><code class="language-bash">dreamweb dev</code></pre>
+            <p style="color: #3b82f6; font-size: 1.2rem;">Visit http://localhost:8000 to see your app! 🎉</p>
+        </section>
+
+        <!-- Core Concepts -->
+        <section id="core-concepts" class="section">
+            <h2>💡 Core Concepts</h2>
+
+            <h3>Widgets</h3>
+            <p>Everything in DreamWeb is a Widget. Widgets are Python classes that describe the configuration of a UI
+                element.</p>
+            <pre><code class="language-python">from dreamweb import App
+from dreamweb.common import *
+
+# A simple text widget
+Text("Hello")
+
+# A container with styling
+Container(
+    padding=20,
+    background="blue",
+    children=[Text("Inside Container")]
+)</code></pre>
+
+            <h3>State Management</h3>
+            <p>DreamWeb has a built-in reactive state management system. Use the State class to create reactive
+                variables.</p>
+            <pre><code class="language-python">from dreamweb import App
+from dreamweb.common import *
+
+class MyApp(App):
+    def __init__(self):
+        super().__init__()
+        self.count = State(0)
+    
+    def build(self):
+        return Column(
+            children=[
+                Text(f"Count: {self.count.value}"),
+                Button(
+                    text="Increment",
+                    on_click=lambda: self.count.set(self.count.value + 1)
+                )
+            ]
+        )</code></pre>
+        </section>
+
+        <!-- Widgets -->
+        <section id="widgets" class="section">
+            <h2>🎨 Widget Library</h2>
+
+            <h3>Layout Widgets</h3>
+            <div class="widget-item">
+                <h4>Container</h4>
+                <p>A box that can contain other widgets and apply styling</p>
+            </div>
+            <div class="widget-item">
+                <h4>Row</h4>
+                <p>Arranges children horizontally</p>
+            </div>
+            <div class="widget-item">
+                <h4>Column</h4>
+                <p>Arranges children vertically</p>
+            </div>
+            <div class="widget-item">
+                <h4>Stack</h4>
+                <p>Overlaps children on top of each other</p>
+            </div>
+
+            <h3>Text Widgets</h3>
+            <div class="widget-item">
+                <h4>Text</h4>
+                <p>Basic text widget with styling options</p>
+            </div>
+            <div class="widget-item">
+                <h4>Heading</h4>
+                <p>Semantic heading (h1-h6)</p>
+            </div>
+
+            <h3>Input Widgets</h3>
+            <div class="widget-item">
+                <h4>Button</h4>
+                <p>Clickable button with event handlers</p>
+            </div>
+            <div class="widget-item">
+                <h4>TextField</h4>
+                <p>Text input field</p>
+            </div>
+            <div class="widget-item">
+                <h4>Checkbox</h4>
+                <p>Boolean toggle</p>
+            </div>
+        </section>
+
+        <!-- CLI -->
+        <section id="cli" class="section">
+            <h2>⌨️ CLI Reference</h2>
+
+            <h3>dreamweb create</h3>
+            <p>Create a new DreamWeb project</p>
+            <pre><code class="language-bash">dreamweb create &lt;project_name&gt;</code></pre>
+
+            <h3>dreamweb dev</h3>
+            <p>Start the development server with hot reload</p>
+            <pre><code class="language-bash">dreamweb dev</code></pre>
+
+            <h3>dreamweb build</h3>
+            <p>Build the application for production</p>
+            <pre><code class="language-bash">dreamweb build</code></pre>
+        </section>
+
+        <!-- SEO -->
+        <section id="seo" class="section">
+            <h2>🔍 SEO & Metadata</h2>
+
+            <h3>Basic Metadata</h3>
+            <p>Set title and description in your App class:</p>
+            <pre><code class="language-python">from dreamweb import App
+from dreamweb.common import *
+
+class MyApp(App):
+    def __init__(self):
+        super().__init__(
+            title="My Awesome App",
+            description="The best app ever built with DreamWeb"
+        )</code></pre>
+
+            <h3>Advanced Head Tags</h3>
+            <p>Add custom meta tags, favicons, and external resources:</p>
+            <pre><code class="language-python">head_tags=[
+    '&lt;meta name="keywords" content="dreamweb, python, app"&gt;',
+    '&lt;meta property="og:title" content="My Awesome App"&gt;',
+    '&lt;link rel="icon" href="/favicon.ico"&gt;',
+]</code></pre>
+        </section>
+
+        <!-- Deployment -->
+        <section id="deployment" class="section">
+            <h2>🌐 Deployment</h2>
+
+            <h3>Build Your App</h3>
+            <p>First, run the build command:</p>
+            <pre><code class="language-bash">dreamweb build</code></pre>
+            <p>This creates a build/ directory with index.html and dreamweb.js</p>
+
+            <h3>Hosting Options</h3>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h4>GitHub Pages</h4>
+                    <p>Configure to serve from the build directory</p>
+                </div>
+                <div class="feature">
+                    <h4>Netlify / Vercel</h4>
+                    <p>Set build command to 'dreamweb build' and output to 'build'</p>
+                </div>
+                <div class="feature">
+                    <h4>Static Web Server</h4>
+                    <p>Serve the build directory with any static file server</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="footer">
+        <p>Made with ❤️ using DreamWeb</p>
+        <p><a href="https://github.com/GrandpaEJ/dreamweb">View on GitHub</a></p>
+    </div>
+
+    <script>
+        // Syntax highlighting
+        document.addEventListener('DOMContentLoaded', (event) => {
+            hljs.highlightAll();
+        });
+    </script>
 </body>
+
 </html>
