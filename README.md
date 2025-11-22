@@ -24,7 +24,8 @@ pip install dreamweb
 ### Create Your First App
 
 ```python
-from dreamweb import App, Container, Text, Button, Row, State
+from dreamweb import App
+from dreamweb.common import *
 
 
 class CounterApp(App):
@@ -159,7 +160,8 @@ padding={'top': 10, 'right': 20, 'bottom': 10, 'left': 20}
 ## 🔄 State Management
 
 ```python
-from dreamweb import State
+from dreamweb import App
+from dreamweb.common import *
 
 class MyApp(App):
     def __init__(self):

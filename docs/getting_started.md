@@ -20,7 +20,8 @@ cd my_app
 Or create a file named `main.py` manually:
 
 ```python
-from dreamweb import App, Container, Text, Button, Row, State
+from dreamweb import App
+from dreamweb.common import *
 
 class CounterApp(App):
     def __init__(self):

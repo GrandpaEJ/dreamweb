@@ -5,7 +5,8 @@
 Everything in DreamWeb is a Widget. Widgets are Python classes that describe the configuration of a UI element.
 
 ```python
-from dreamweb import Text, Container
+from dreamweb import App
+from dreamweb.common import *
 
 # A simple text widget
 Text("Hello")
@@ -25,7 +26,8 @@ Widgets are immutable configuration objects. When the state changes, DreamWeb re
 DreamWeb has a built-in reactive state management system. Use the `State` class to create reactive variables.
 
 ```python
-from dreamweb import State, App, Text, Button
+from dreamweb import App
+from dreamweb.common import *
 
 class MyApp(App):
     def __init__(self):

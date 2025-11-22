@@ -7,6 +7,9 @@ DreamWeb allows you to customize the metadata of your application to improve Sea
 You can set the `title` and `description` of your app in the `__init__` method of your `App` class:
 
 ```python
+from dreamweb import App
+from dreamweb.common import *
+
 class MyApp(App):
     def __init__(self):
         super().__init__(
@@ -31,6 +34,9 @@ For more control, you can pass a list of raw HTML strings to `head_tags`. This i
 - External scripts or stylesheets
 
 ```python
+from dreamweb import App
+from dreamweb.common import *
+
 class MyApp(App):
     def __init__(self):
         super().__init__(
