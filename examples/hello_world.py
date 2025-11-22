@@ -2,7 +2,8 @@
 Simple Hello World example
 """
 
-from dreamweb import App, Container, Text, Center
+from dreamweb import App
+from dreamweb.common import *
 
 
 class HelloWorldApp(App):

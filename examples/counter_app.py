@@ -2,7 +2,8 @@
 Counter app with state management
 """
 
-from dreamweb import App, Container, Text, Button, Row, Column, State
+from dreamweb import App
+from dreamweb.common import *
 
 
 class CounterApp(App):

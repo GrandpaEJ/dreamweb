@@ -19,7 +19,12 @@ def create_project(name: str):
     project_dir.mkdir()
     
     # Create main.py
-    main_py = f"""from dreamweb import App, Container, Text, Button, Row, State
+    main_content = f'''"""
+{name.capitalize()} - A DreamWeb Application
+"""
+
+from dreamweb import App
+from dreamweb.common import *
 
 
 class {name.capitalize()}App(App):
