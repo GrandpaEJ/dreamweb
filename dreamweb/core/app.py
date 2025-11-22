@@ -104,12 +104,18 @@ class App:
     
     def run(self, dev: bool = False, port: int = 8000, host: str = "localhost"):
         """Run the application"""
+        import os
+        
+        # Check environment variable override
+        if os.environ.get('DREAMWEB_BUILD'):
+            dev = False
+        
         if dev:
             from dreamweb.server import DevServer
             server = DevServer(self, port=port, host=host)
             server.start()
         else:
-            from dreamweb.build import Builder
+            from dreamweb.builder_module import Builder
             builder = Builder(self)
             builder.build()
             print(f"✅ Build complete! Check the 'build' directory.")

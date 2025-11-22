@@ -88,6 +88,38 @@ This will start the dev server at http://localhost:8000
 """)
 
 
+import os
+import subprocess
+
+def run_dev(port: int, host: str):
+    """Run dev server"""
+    if not Path("main.py").exists():
+        print("❌ main.py not found! Are you in a DreamWeb project directory?")
+        return
+    
+    print(f"🚀 Starting dev server on {host}:{port}...")
+    # Pass port/host via env vars or args if supported, but for now just run main.py
+    # main.py usually calls run(dev=True)
+    try:
+        subprocess.run([sys.executable, "main.py"])
+    except KeyboardInterrupt:
+        pass
+
+def run_build(output: str):
+    """Build for production"""
+    if not Path("main.py").exists():
+        print("❌ main.py not found! Are you in a DreamWeb project directory?")
+        return
+    
+    print(f"📦 Building project to {output}...")
+    env = os.environ.copy()
+    env['DREAMWEB_BUILD'] = '1'
+    
+    try:
+        subprocess.run([sys.executable, "main.py"], env=env)
+    except Exception as e:
+        print(f"❌ Build failed: {e}")
+
 def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(description="DreamWeb - Python Web Framework")
@@ -111,9 +143,9 @@ def main():
     if args.command == 'create':
         create_project(args.name)
     elif args.command == 'dev':
-        print("Dev server command - run your app with: python main.py")
+        run_dev(args.port, args.host)
     elif args.command == 'build':
-        print("Build command - run your app with: python main.py (without dev=True)")
+        run_build(args.output)
     else:
         parser.print_help()
 
