@@ -43,9 +43,9 @@ dreamweb = "dreamweb.cli:main"
 
 
 [project.urls]
-Homepage = "https://github.com/dreamweb/dreamweb"
-Documentation = "https://dreamweb.dev/docs"
-Repository = "https://github.com/dreamweb/dreamweb"
+Homepage = "https://github.com/GrandpaEJ/dreamweb"
+Documentation = "https://github.com/GrandpaEJ/dreamweb"
+Repository = "https://github.com/GrandpaEJ/dreamweb"
 
 [tool.setuptools.packages.find]
 where = ["."]
