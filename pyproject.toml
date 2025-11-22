@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dreamweb"
+version = "0.1.0"
+description = "A Flutter-like Python web framework - build beautiful UIs without HTML/CSS/JS"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "DreamWeb Team"}
+]
+keywords = ["web", "framework", "ui", "flutter", "python", "frontend"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+
+dependencies = [
+    "watchdog>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "mypy>=0.950",
+]
+
+[project.scripts]
+dreamweb = "dreamweb.cli:main"
+
+
+[project.urls]
+Homepage = "https://github.com/dreamweb/dreamweb"
+Documentation = "https://dreamweb.dev/docs"
+Repository = "https://github.com/dreamweb/dreamweb"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dreamweb*"]
+
+[tool.setuptools.package-data]
+dreamweb = ["runtime/*.js"]
+
