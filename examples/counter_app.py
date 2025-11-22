@@ -7,7 +7,10 @@ from dreamweb import App, Container, Text, Button, Row, Column, State
 
 class CounterApp(App):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            title="Counter App",
+            description="A simple counter built with DreamWeb"
+        )
         self.count = State(0)
     
     def increment(self):

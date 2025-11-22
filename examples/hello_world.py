@@ -6,6 +6,12 @@ from dreamweb import App, Container, Text, Center
 
 
 class HelloWorldApp(App):
+    def __init__(self):
+        super().__init__(
+            title="Hello World",
+            description="My first DreamWeb app"
+        )
+
     def build(self):
         return Center(
             child=Container(

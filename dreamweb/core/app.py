@@ -13,7 +13,10 @@ from dreamweb.core.widget import Widget
 class App:
     """Main application class"""
     
-    def __init__(self):
+    def __init__(self, title: str = "DreamWeb App", description: str = "Built with DreamWeb", head_tags: List[str] = None):
+        self.title = title
+        self.description = description
+        self.head_tags = head_tags or []
         self._states: List[State] = []
         self._event_handlers: Dict[str, Any] = {}
         self._setup_state_tracking()

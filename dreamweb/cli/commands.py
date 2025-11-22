@@ -24,7 +24,14 @@ def create_project(name: str):
 
 class {name.capitalize()}App(App):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            title="{name.capitalize()} App",
+            description="A DreamWeb application",
+            head_tags=[
+                '<meta name="keywords" content="dreamweb, python, web framework">',
+                '<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">'
+            ]
+        )
         self.count = State(0)
     
     def build(self):

@@ -50,8 +50,9 @@ class Builder:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Built with DreamWeb">
-    <title>DreamWeb App</title>
+    <meta name="description" content="{self.app.description}">
+    <title>{self.app.title}</title>
+    {chr(10).join(self.app.head_tags)}
     <style>
         * {{
             margin: 0;

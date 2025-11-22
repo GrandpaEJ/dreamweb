@@ -53,7 +53,9 @@ class DreamWebHandler(SimpleHTTPRequestHandler):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DreamWeb App</title>
+    <meta name="description" content="{self.app_instance.description}">
+    <title>{self.app_instance.title}</title>
+    {chr(10).join(self.app_instance.head_tags)}
     <style>
         * {{
             margin: 0;

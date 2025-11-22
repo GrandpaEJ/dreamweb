@@ -7,7 +7,10 @@ from dreamweb import App, Container, Text, Button, TextField, Row, Column, Check
 
 class TodoApp(App):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            title="Todo App",
+            description="A fully functional todo app built with DreamWeb"
+        )
         self.todos = State([])
         self.new_todo = State("")
     
