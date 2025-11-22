@@ -36,74 +36,95 @@ class DreamWebRuntime {
             return document.createTextNode(component.text);
         }
 
-        const element = document.createElement('div');
+        let element;
 
-        // Apply styles based on component type and props
+        // Create element based on type
         switch (component.type) {
             case 'Container':
-                this.applyContainerStyles(element, component.props);
-                break;
             case 'Row':
-                this.applyRowStyles(element, component.props);
-                break;
             case 'Column':
-                this.applyColumnStyles(element, component.props);
-                break;
             case 'Center':
-                // Center widget - flex container that centers its child
-                element.style.display = 'flex';
-                element.style.alignItems = 'center';
-                element.style.justifyContent = 'center';
-                element.style.width = '100%';
-                element.style.height = '100%';
-                break;
             case 'Stack':
-                // Stack widget - absolute positioning
-                element.style.position = 'relative';
-                element.style.width = '100%';
-                element.style.height = '100%';
-                break;
             case 'Spacer':
-                // Spacer widget - flexible space
-                element.style.flex = component.props.size ? `0 0 ${component.props.size}px` : '1';
+                element = document.createElement('div');
+                if (component.type === 'Container') this.applyContainerStyles(element, component.props);
+                else if (component.type === 'Row') this.applyRowStyles(element, component.props);
+                else if (component.type === 'Column') this.applyColumnStyles(element, component.props);
+                else if (component.type === 'Center') {
+                    element.style.display = 'flex';
+                    element.style.alignItems = 'center';
+                    element.style.justifyContent = 'center';
+                    element.style.width = '100%';
+                    element.style.height = '100%';
+                }
+                else if (component.type === 'Stack') {
+                    element.style.position = 'relative';
+                    element.style.width = '100%';
+                    element.style.height = '100%';
+                }
+                else if (component.type === 'Spacer') {
+                    element.style.flex = component.props.size ? `0 0 ${component.props.size}px` : '1';
+                }
                 break;
+
             case 'Text':
-                const span = document.createElement('span');
-                this.applyTextStyles(span, component.props);
-                span.textContent = component.props.text;
-                return span;
+                element = document.createElement('span');
+                this.applyTextStyles(element, component.props);
+                element.textContent = component.props.text;
+                break;
+
             case 'Heading':
-                const h = document.createElement(`h${component.props.level || 1}`);
-                this.applyTextStyles(h, component.props);
-                h.textContent = component.props.text;
-                return h;
+                element = document.createElement(`h${component.props.level || 1}`);
+                this.applyTextStyles(element, component.props);
+                element.textContent = component.props.text;
+                break;
+
             case 'Button':
-                return this.createButton(component);
+                element = this.createButton(component);
+                break;
+
             case 'TextField':
-                return this.createTextField(component);
+                element = this.createTextField(component);
+                break;
+
             case 'Checkbox':
-                return this.createCheckbox(component);
+                element = this.createCheckbox(component);
+                break;
+
             case 'Image':
-                return this.createImage(component);
+                element = this.createImage(component);
+                break;
+
             case 'Link':
-                return this.createLink(component);
+                element = this.createLink(component);
+                break;
+
             case 'Html':
+                element = document.createElement('div');
                 element.innerHTML = component.props.html;
-                return element;
+                break;
+
             case 'Css':
-                const style = document.createElement('style');
-                style.textContent = component.props.css;
-                return style;
+                element = document.createElement('style');
+                element.textContent = component.props.css;
+                break;
+
             default:
                 console.warn(`Unknown component type: ${component.type}`);
+                element = document.createElement('div');
         }
 
         // Render children
         if (component.children && component.children.length > 0) {
-            component.children.forEach(child => {
-                const childElement = this.createElement(child);
-                element.appendChild(childElement);
-            });
+            // Some components might handle children internally or not support them
+            // For now, we append children to all container-like elements
+            // Button, Input etc usually don't have children in this model
+            if (!['Button', 'TextField', 'Checkbox', 'Image', 'Css'].includes(component.type)) {
+                component.children.forEach(child => {
+                    const childElement = this.createElement(child);
+                    element.appendChild(childElement);
+                });
+            }
         }
 
         // Attach event handlers
@@ -492,7 +513,9 @@ class DreamWebRuntime {
     // Hot reload support
     setupHotReload() {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            this.ws = new WebSocket(`ws://${window.location.host}/ws`);
+            // Connect to WebSocket server (running on port + 1)
+            const wsPort = parseInt(window.location.port) + 1;
+            this.ws = new WebSocket(`ws://${window.location.hostname}:${wsPort}`);
 
             this.ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);

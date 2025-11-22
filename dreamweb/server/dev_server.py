@@ -97,6 +97,10 @@ class FileWatcher(FileSystemEventHandler):
             self.callback()
 
 
+import asyncio
+import websockets
+from threading import Thread
+
 class DevServer:
     """Development server with hot reload"""
     
@@ -105,7 +109,8 @@ class DevServer:
         self.port = port
         self.host = host
         self.observer = None
-        self.ws_clients = []
+        self.ws_clients = set()
+        self.loop = None
     
     def start(self):
         """Start the dev server"""
@@ -124,19 +129,76 @@ class DevServer:
         # Set app instance for handler
         DreamWebHandler.app_instance = self.app
         
-        # Start HTTP server
-        server = HTTPServer((self.host, self.port), DreamWebHandler)
-        
         # Start file watcher
         self.start_file_watcher()
         
+        # Start HTTP server in a separate thread
+        http_thread = Thread(target=self._run_http_server)
+        http_thread.daemon = True
+        http_thread.start()
+        
+        # Start WebSocket server
+        self._run_ws_server()
+    
+    def _run_http_server(self):
+        """Run HTTP server"""
+        server = HTTPServer((self.host, self.port), DreamWebHandler)
+        server.serve_forever()
+    
+    def _run_ws_server(self):
+        """Run WebSocket server"""
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        
+        async def runner():
+            async with websockets.serve(self._handle_ws, self.host, self.port + 1):
+                print(f"🔌 WebSocket server running at ws://{self.host}:{self.port + 1}")
+                await asyncio.Future()  # run forever
+
         try:
-            server.serve_forever()
+            self.loop.run_until_complete(runner())
         except KeyboardInterrupt:
-            print("\n👋 Stopping dev server...")
-            if self.observer:
-                self.observer.stop()
-                self.observer.join()
+            pass
+    
+    async def _handle_ws(self, websocket):
+        """Handle WebSocket connection"""
+        self.ws_clients.add(websocket)
+        try:
+            async for message in websocket:
+                data = json.loads(message)
+                if data['type'] == 'event':
+                    # Handle event
+                    await self._handle_event(data)
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        finally:
+            self.ws_clients.remove(websocket)
+    
+    async def _handle_event(self, data):
+        """Handle event from client"""
+        handler_id = data.get('handler')
+        value = data.get('value')
+        
+        # Dispatch event to app
+        if self.app._handle_event(handler_id, value):
+            # If state changed, broadcast update
+            await self._broadcast_update()
+    
+    async def _broadcast_update(self):
+        """Broadcast app update to all clients"""
+        if not self.ws_clients:
+            return
+            
+        tree = self.app._widget_to_dict(self.app.build())
+        message = json.dumps({
+            'type': 'reload',
+            'tree': tree
+        })
+        
+        # Create tasks for sending to all clients
+        tasks = [asyncio.create_task(client.send(message)) for client in self.ws_clients]
+        if tasks:
+            await asyncio.wait(tasks)
     
     def start_file_watcher(self):
         """Start watching for file changes"""
@@ -152,7 +214,8 @@ class DevServer:
     
     def on_file_change(self):
         """Handle file changes"""
-        # Reload the app module
-        # Note: This is a simplified version. In production, we'd need proper module reloading
-        print("🔄 Reloading app...")
-        # The browser will handle the reload via WebSocket
+        print("🔄 File changed, reloading...")
+        # In a real implementation, we would reload the module here
+        # For now, we just trigger a client refresh if possible
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(self._broadcast_update(), self.loop)

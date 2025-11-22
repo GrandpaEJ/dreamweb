@@ -15,6 +15,7 @@ class App:
     
     def __init__(self):
         self._states: List[State] = []
+        self._event_handlers: Dict[str, Any] = {}
         self._setup_state_tracking()
     
     def _setup_state_tracking(self):
@@ -35,14 +36,56 @@ class App:
         """Build the UI tree - must be implemented by subclass"""
         pass
     
+    def _handle_event(self, handler_id: str, value: Any) -> bool:
+        """Handle event from client"""
+        if handler_id in self._event_handlers:
+            handler = self._event_handlers[handler_id]
+            # Call handler with value if it accepts arguments, otherwise without
+            try:
+                if value is not None:
+                    handler(value)
+                else:
+                    handler()
+                return True
+            except TypeError:
+                # Try the other way if first attempt failed
+                try:
+                    if value is not None:
+                        handler()
+                    else:
+                        handler(value)
+                    return True
+                except TypeError:
+                    return False
+        return False
+
     def _serialize(self) -> str:
         """Serialize the app to JSON for compilation"""
+        # Clear handlers before rebuild
+        self._event_handlers = {}
         tree = self.build()
         return json.dumps(self._widget_to_dict(tree), indent=2)
     
     def _widget_to_dict(self, widget: Widget) -> Dict[str, Any]:
         """Recursively convert widget tree to dictionary"""
+        # Convert widget to dict but keep callables for now
         data = widget.to_dict()
+        
+        # Process props to find event handlers
+        if 'props' in data:
+            for key, value in widget.props.items():
+                if callable(value) and key.startswith('on_'):
+                    # Register handler
+                    handler_id = f"{key}_{id(value)}"
+                    self._event_handlers[handler_id] = value
+                    
+                    # Add to events dict in data
+                    if 'events' not in data:
+                        data['events'] = {}
+                    
+                    # Map event name (e.g. on_click -> click)
+                    event_name = key.replace('on_', '')
+                    data['events'][event_name] = handler_id
         
         # Process children
         if 'children' in data and data['children']:
