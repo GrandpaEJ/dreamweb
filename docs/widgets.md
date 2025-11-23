@@ -132,19 +132,63 @@ Checkbox(
 )
 ```
 
-## Media Widgets
+## API Widgets
 
-### Image
-Display an image.
+### ApiRequest
+Make HTTP requests with full control over method, headers, and body.
 ```python
-Image(
-    src="/path/to/image.jpg",
-    width=200,
-    height=200,
-    fit="cover", # cover, contain, fill
-    rounded=8
+ApiRequest(
+    url="https://api.example.com/users",
+    method="POST",  # GET, POST, PUT, DELETE, PATCH
+    headers={"Authorization": "Bearer token"},
+    body={"name": "John", "email": "john@example.com"},
+    on_success=lambda data: self.handle_success(data),
+    on_error=lambda error: self.handle_error(error),
+    on_loading=lambda loading: self.set_loading(loading),
+    auto_fetch=True,  # Automatically fetch on mount
+    credentials="same-origin"  # omit, same-origin, include
 )
 ```
+
+### FetchData
+Simplified widget for GET requests.
+```python
+FetchData(
+    url="https://api.github.com/users/octocat",
+    on_success=lambda data: self.user.set(data),
+    on_error=lambda error: print(error),
+    auto_fetch=True
+)
+```
+
+**Example Usage:**
+```python
+from dreamweb import App
+from dreamweb.common import *
+
+class ApiApp(App):
+    def __init__(self):
+        super().__init__()
+        self.data = State(None)
+        self.loading = State(False)
+    
+    def on_success(self, data):
+        self.data.set(data)
+        self.loading.set(False)
+    
+    def build(self):
+        return Container(children=[
+            FetchData(
+                url="https://api.example.com/data",
+                on_success=self.on_success,
+                on_loading=lambda l: self.loading.set(l)
+            ),
+            Text("Loading..." if self.loading.value else 
+                 f"Data: {self.data.value}")
+        ])
+```
+
+See [API Widget Documentation](widgets/api.md) for more details.
 
 ## Advanced
 

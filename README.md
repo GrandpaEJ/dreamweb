@@ -113,6 +113,20 @@ Visit `http://localhost:8000` to see your app! 🎉
 - **Select** - `Select(options, value, placeholder, on_change)`
 - **Slider** - `Slider(value, min, max, step, on_change)`
 
+### API Widgets
+
+- **ApiRequest** - `ApiRequest(url, method, headers, body, on_success, on_error, on_loading)`
+- **FetchData** - `FetchData(url, on_success, on_error)` - Simplified GET requests
+
+```python
+# Example: Fetch data from an API
+FetchData(
+    url="https://api.github.com/users/octocat",
+    on_success=lambda data: self.user.set(data),
+    on_error=lambda error: print(error)
+)
+```
+
 ### Media Widgets
 
 - **Image** - `Image(src, width, height, fit, rounded)`
@@ -194,6 +208,9 @@ Check the `examples/` directory for:
 - `hello_world.py` - Simple hello world
 - `counter_app.py` - Counter with state
 - `todo_app.py` - Full todo application
+- `api_example.py` - Fetch data from GitHub API
+- `api_post_example.py` - POST requests with form data
+- `api_demo.html` - Interactive API demo
 
 ## 🆚 Comparison
 
