@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dreamweb.builder_module.builder import Builder
-from docs_app import DocsApp
+from docs_app_static import DocsApp  # Use static version for production build
 
 
 def main():

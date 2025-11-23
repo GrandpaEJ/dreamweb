@@ -11,3 +11,4 @@ wheels/
 
 # Lock files
 uv.lock
+!docs/web/build
