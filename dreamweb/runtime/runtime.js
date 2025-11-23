@@ -109,6 +109,15 @@ class DreamWebRuntime {
                 element.textContent = component.props.css;
                 break;
 
+            case 'ApiRequest':
+            case 'FetchData':
+                // API widgets don't render visible elements
+                element = document.createElement('div');
+                element.style.display = 'none';
+                // Trigger the API request
+                this.handleApiRequest(component);
+                break;
+
             default:
                 console.warn(`Unknown component type: ${component.type}`);
                 element = document.createElement('div');
@@ -331,6 +340,88 @@ class DreamWebRuntime {
                 handler: handlerId,
                 value: value
             }));
+        }
+    }
+
+    // Handle API requests
+    async handleApiRequest(component) {
+        const { url, method, headers, body, auto_fetch, credentials, callbacks } = component.props;
+
+        // Only fetch if auto_fetch is true (default)
+        if (auto_fetch === false) {
+            return;
+        }
+
+        try {
+            // Notify loading started
+            if (callbacks && callbacks.on_loading) {
+                this.handleEvent('api_loading', callbacks.on_loading, true);
+            }
+
+            // Prepare fetch options
+            const fetchOptions = {
+                method: (method || 'GET').toUpperCase(),
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(headers || {})
+                },
+                credentials: credentials || 'same-origin'
+            };
+
+            // Add body if present (and not GET/HEAD)
+            if (body && !['GET', 'HEAD'].includes(fetchOptions.method)) {
+                if (typeof body === 'object') {
+                    fetchOptions.body = JSON.stringify(body);
+                } else {
+                    fetchOptions.body = body;
+                }
+            }
+
+            // Make the request
+            const response = await fetch(url, fetchOptions);
+
+            // Check if response is ok
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // Parse response
+            const contentType = response.headers.get('content-type');
+            let data;
+
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else if (contentType && contentType.includes('text/')) {
+                data = await response.text();
+            } else {
+                data = await response.blob();
+            }
+
+            // Notify loading finished
+            if (callbacks && callbacks.on_loading) {
+                this.handleEvent('api_loading', callbacks.on_loading, false);
+            }
+
+            // Call success callback
+            if (callbacks && callbacks.on_success) {
+                this.handleEvent('api_success', callbacks.on_success, data);
+            }
+
+        } catch (error) {
+            // Notify loading finished
+            if (callbacks && callbacks.on_loading) {
+                this.handleEvent('api_loading', callbacks.on_loading, false);
+            }
+
+            // Call error callback
+            if (callbacks && callbacks.on_error) {
+                this.handleEvent('api_error', callbacks.on_error, {
+                    message: error.message,
+                    name: error.name
+                });
+            }
+
+            console.error('DreamWeb API Request Error:', error);
         }
     }
 

@@ -13,6 +13,7 @@ class Widget(ABC):
         self.props = kwargs
         self.children = kwargs.get('children', [])
         self.key = kwargs.get('key', None)
+        self.style = kwargs.get('style', '')  # Custom CSS styles
     
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:

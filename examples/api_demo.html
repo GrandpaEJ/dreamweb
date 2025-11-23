@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamWeb API Widget Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            color: #fbbf24;
+        }
+
+        .error {
+            color: #ef4444;
+        }
+
+        .success {
+            color: #10b981;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .user-card img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-right: 20px;
+            float: left;
+        }
+
+        .user-info {
+            overflow: hidden;
+        }
+
+        .user-info h3 {
+            margin-bottom: 5px;
+        }
+
+        .user-info p {
+            opacity: 0.8;
+            margin: 3px 0;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 DreamWeb API Widget Demo</h1>
+        <p class="subtitle">Testing the ApiRequest widget with live API calls</p>
+
+        <!-- Demo 1: GET Request -->
+        <div class="demo-section">
+            <h2>📥 GET Request Demo</h2>
+            <p>Fetch user data from GitHub API</p>
+            <button onclick="fetchGitHubUser()">Fetch GitHub User</button>
+            <button onclick="fetchRandomUser()">Fetch Random User</button>
+            <div id="get-result" class="result"></div>
+            <div id="user-card"></div>
+        </div>
+
+        <!-- Demo 2: POST Request -->
+        <div class="demo-section">
+            <h2>📤 POST Request Demo</h2>
+            <p>Create a new resource (JSONPlaceholder API)</p>
+            <input type="text" id="post-title" placeholder="Enter title">
+            <input type="text" id="post-body" placeholder="Enter body">
+            <button onclick="createPost()">Create Post</button>
+            <div id="post-result" class="result"></div>
+        </div>
+
+        <!-- Demo 3: Multiple Requests -->
+        <div class="demo-section">
+            <h2>🔄 Multiple Requests Demo</h2>
+            <p>Fetch multiple GitHub users concurrently</p>
+            <button onclick="fetchMultipleUsers()">Fetch 3 Users</button>
+            <button onclick="cancelAllRequests()">Cancel All</button>
+            <div id="multi-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Load the DreamWeb API widget -->
+    <script src="../dreamweb/runtime/widgets/api.js"></script>
+
+    <script>
+        // Demo 1: GET Request
+        function fetchGitHubUser() {
+            const resultDiv = document.getElementById('get-result');
+            const cardDiv = document.getElementById('user-card');
+            resultDiv.innerHTML = '<span class="loading">⏳ Loading...</span>';
+            cardDiv.innerHTML = '';
+
+            window.DreamWebApi.get('https://api.github.com/users/octocat', {
+                onSuccess: (data) => {
+                    resultDiv.innerHTML = `<span class="success">✅ Success!</span>\n${JSON.stringify(data, null, 2)}`;
+                    cardDiv.innerHTML = `
+                        <div class="user-card">
+                            <img src="${data.avatar_url}" alt="${data.login}">
+                            <div class="user-info">
+                                <h3>${data.name || data.login}</h3>
+                                <p>@${data.login}</p>
+                                <p>${data.bio || 'No bio available'}</p>
+                                <p>📍 ${data.location || 'Unknown'}</p>
+                                <p>📦 ${data.public_repos} public repos</p>
+                            </div>
+                        </div>
+                    `;
+                },
+                onError: (error) => {
+                    resultDiv.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+                },
+                onLoading: (isLoading) => {
+                    console.log('Loading:', isLoading);
+                }
+            });
+        }
+
+        function fetchRandomUser() {
+            const resultDiv = document.getElementById('get-result');
+            const cardDiv = document.getElementById('user-card');
+            resultDiv.innerHTML = '<span class="loading">⏳ Loading...</span>';
+            cardDiv.innerHTML = '';
+
+            window.DreamWebApi.get('https://randomuser.me/api/', {
+                onSuccess: (data) => {
+                    const user = data.results[0];
+                    resultDiv.innerHTML = `<span class="success">✅ Success!</span>\n${JSON.stringify(user, null, 2)}`;
+                    cardDiv.innerHTML = `
+                        <div class="user-card">
+                            <img src="${user.picture.large}" alt="${user.name.first}">
+                            <div class="user-info">
+                                <h3>${user.name.first} ${user.name.last}</h3>
+                                <p>📧 ${user.email}</p>
+                                <p>📱 ${user.phone}</p>
+                                <p>📍 ${user.location.city}, ${user.location.country}</p>
+                            </div>
+                        </div>
+                    `;
+                },
+                onError: (error) => {
+                    resultDiv.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+                }
+            });
+        }
+
+        // Demo 2: POST Request
+        function createPost() {
+            const resultDiv = document.getElementById('post-result');
+            const title = document.getElementById('post-title').value;
+            const body = document.getElementById('post-body').value;
+
+            if (!title || !body) {
+                resultDiv.innerHTML = '<span class="error">❌ Please fill in both fields</span>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<span class="loading">⏳ Creating post...</span>';
+
+            window.DreamWebApi.post('https://jsonplaceholder.typicode.com/posts', {
+                title: title,
+                body: body,
+                userId: 1
+            }, {
+                onSuccess: (data) => {
+                    resultDiv.innerHTML = `<span class="success">✅ Post created successfully!</span>\n${JSON.stringify(data, null, 2)}`;
+                    document.getElementById('post-title').value = '';
+                    document.getElementById('post-body').value = '';
+                },
+                onError: (error) => {
+                    resultDiv.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+                }
+            });
+        }
+
+        // Demo 3: Multiple Requests
+        async function fetchMultipleUsers() {
+            const resultDiv = document.getElementById('multi-result');
+            resultDiv.innerHTML = '<span class="loading">⏳ Fetching 3 users...</span>';
+
+            const users = ['torvalds', 'gvanrossum', 'matz'];
+            const promises = users.map(username =>
+                window.DreamWebApi.get(`https://api.github.com/users/${username}`)
+            );
+
+            try {
+                const results = await Promise.all(promises);
+                const userData = results.map(r => r.data);
+                resultDiv.innerHTML = `<span class="success">✅ Fetched ${userData.length} users!</span>\n${JSON.stringify(userData.map(u => ({
+                    name: u.name,
+                    login: u.login,
+                    repos: u.public_repos
+                })), null, 2)}`;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        function cancelAllRequests() {
+            window.DreamWebApi.cancelAll();
+            document.getElementById('multi-result').innerHTML = '<span class="error">🚫 All requests cancelled</span>';
+        }
+
+        // Auto-run first demo on load
+        window.addEventListener('load', () => {
+            setTimeout(fetchGitHubUser, 500);
+        });
+    </script>
+</body>
+
+</html>

@@ -44,6 +44,12 @@ from dreamweb.widgets.advanced import (
     Css
 )
 
+# API widgets
+from dreamweb.widgets.api import (
+    ApiRequest,
+    FetchData
+)
+
 __all__ = [
     # Layout
     'Container', 'Row', 'Column', 'Stack', 'Center', 'Spacer',
@@ -56,5 +62,7 @@ __all__ = [
     # Navigation
     'Link',
     # Advanced
-    'Html', 'Css'
+    'Html', 'Css',
+    # API
+    'ApiRequest', 'FetchData'
 ]

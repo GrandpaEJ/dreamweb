@@ -38,6 +38,10 @@ from dreamweb.widgets import (
     # Raw HTML/CSS (advanced)
     Html,
     Css,
+    
+    # API
+    ApiRequest,
+    FetchData,
 )
 
 __all__ = [
@@ -62,4 +66,6 @@ __all__ = [
     "Link",
     "Html",
     "Css",
+    "ApiRequest",
+    "FetchData",
 ]

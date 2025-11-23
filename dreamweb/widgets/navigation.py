@@ -30,3 +30,32 @@ class Link(Widget):
             'type': 'Link',
             'props': self.props
         }
+
+
+class Router(Widget):
+    """
+    Client-side page navigation widget
+    
+    Parameters:
+        page: State object for current page
+        pages: Dict mapping page names to widgets
+    """
+    js_module = "widgets/router.js"
+    
+    def __init__(self, page, pages, **kwargs):
+        super().__init__(
+            page=page,
+            pages=pages,
+            **kwargs
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'type': 'Router',
+            'props': {
+                'page': self.props['page'],
+                'pages': self.props['pages'],
+            },
+            'js_module': self.js_module
+        }
+
