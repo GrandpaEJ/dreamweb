@@ -23,9 +23,490 @@
             width: 100%;
             min-height: 100vh;
         }
+        
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    
+                    body {
+                        background: #0f172a;
+                        color: #cbd5e1;
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    }
+                    
+                    a {
+                        color: #3b82f6;
+                        text-decoration: none;
+                    }
+                    
+                    a:hover {
+                        text-decoration: underline;
+                    }
+                    
+                    code {
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                    }
+                    
+                    /* Smooth scrolling */
+                    html {
+                        scroll-behavior: smooth;
+                    }
+                    
+                    /* Page sections - hide all by default */
+                    .page-section {
+                        display: none;
+                    }
+                    
+                    .page-section.active {
+                        display: block;
+                    }
+                    
+                    /* Navigation active state */
+                    .nav-link {
+                        margin: 0 5px;
+                        padding: 10px 15px;
+                        border-bottom: 2px solid transparent;
+                        border-radius: 0;
+                        cursor: pointer;
+                        background: transparent;
+                        color: #cbd5e1;
+                        border: none;
+                        font-size: 1rem;
+                        font-weight: normal;
+                        transition: all 0.2s;
+                    }
+                    
+                    .nav-link:hover {
+                        color: white;
+                    }
+                    
+                    .nav-link.active {
+                        color: white;
+                        font-weight: bold;
+                        border-bottom-color: #3b82f6;
+                    }
+                
     </style>
 </head>
 <body>
+    
+                    <script>
+                        // Client-side navigation for static build
+                        function navigateTo(pageId) {
+                            // Hide all pages
+                            document.querySelectorAll('.page-section').forEach(page => {
+                                page.classList.remove('active');
+                            });
+                            
+                            // Show selected page
+                            const targetPage = document.getElementById('page-' + pageId);
+                            if (targetPage) {
+                                targetPage.classList.add('active');
+                            }
+                            
+                            // Update nav links
+                            document.querySelectorAll('.nav-link').forEach(link => {
+                                link.classList.remove('active');
+                            });
+                            const activeLink = document.querySelector('[data-page="' + pageId + '"]');
+                            if (activeLink) {
+                                activeLink.classList.add('active');
+                            }
+                            
+                            // Scroll to top
+                            window.scrollTo(0, 0);
+                        }
+                        
+                        // Initialize on page load
+                        document.addEventListener('DOMContentLoaded', function() {
+                            // Show home page by default
+                            navigateTo('home');
+                            
+                            // Add click handlers to nav links
+                            document.querySelectorAll('.nav-link').forEach(link => {
+                                link.addEventListener('click', function() {
+                                    const pageId = this.getAttribute('data-page');
+                                    navigateTo(pageId);
+                                });
+                            });
+                        });
+                    </script>
+                
+
+                                            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                                <button class="nav-link" data-page="home">Home</button>
+                                                <button class="nav-link" data-page="getting_started">Getting Started</button>
+                                                <button class="nav-link" data-page="widgets">Widgets</button>
+                                            </div>
+                                        
+<div id="page-home" class="page-section">
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">from dreamweb import App
+from dreamweb.common import *
+
+class CounterApp(App):
+    def __init__(self):
+        super().__init__()
+        self.count = State(0)
+    
+    def build(self):
+        return Container(
+            width="100%",
+            height="100vh",
+            background="gradient-purple-pink",
+            align="center",
+            justify="center",
+            children=[
+                Text(f"Count: {self.count.value}", size="2xl"),
+                Button(
+                    text="Increment",
+                    on_click=lambda: self.count.set(self.count.value + 1)
+                )
+            ]
+        )
+
+if __name__ == "__main__":
+    CounterApp().run(dev=True)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">python app.py</code>
+                </pre>
+            
+</div>
+<div id="page-getting_started" class="page-section">
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">pip install dreamweb</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">from dreamweb import App
+from dreamweb.common import *
+
+class HelloApp(App):
+    def __init__(self):
+        super().__init__(title="Hello DreamWeb")
+    
+    def build(self):
+        return Container(
+            width="100%",
+            height="100vh",
+            background="gradient-purple-pink",
+            align="center",
+            justify="center",
+            children=[
+                Text(
+                    "Hello, DreamWeb! 👋",
+                    size="4xl",
+                    weight="bold",
+                    color="white"
+                )
+            ]
+        )
+
+if __name__ == "__main__":
+    HelloApp().run(dev=True)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">python app.py</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    "># Build for production
+if __name__ == "__main__":
+    HelloApp().run(dev=False)</code>
+                </pre>
+            
+</div>
+<div id="page-widgets" class="page-section">
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Container(width='100%', padding=20, background='white')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Row(spacing=10, children=[...])</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Column(spacing=10, children=[...])</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Stack(children=[...])</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Center(child=Text('Centered'))</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Spacer()</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Text('Hello', size='xl', color='primary')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Heading('Title', level=1)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Button(text='Click', on_click=handler)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">TextField(placeholder='Name', on_change=handler)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Checkbox(checked=True, label='Accept')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Radio(checked=True, name='group')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Select(options=['A', 'B'], on_change=handler)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Slider(value=50, min=0, max=100)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">ApiRequest(url='...', method='GET', on_success=handler)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">FetchData(url='...', on_success=handler)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Image(src='/path.jpg', width=200)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Video(src='/video.mp4', controls=True)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Icon(name='heart', size=24)</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Link(text='GitHub', to='https://...')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Html(html='<div>Custom</div>')</code>
+                </pre>
+            
+
+                <pre style="margin: 0; padding: 0; overflow-x: auto;">
+                    <code style="
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        white-space: pre;
+                    ">Css(css='.class { color: red; }')</code>
+                </pre>
+            
+</div>
     <div id="app"></div>
     <script src="dreamweb.js"></script>
 </body>

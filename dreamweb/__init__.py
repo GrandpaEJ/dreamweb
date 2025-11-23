@@ -11,5 +11,5 @@ Usage:
 
 from dreamweb.core import App
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __all__ = ["App"]

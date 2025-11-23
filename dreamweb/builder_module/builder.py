@@ -43,8 +43,51 @@ class Builder:
         print(f"   - index.html")
         print(f"   - dreamweb.js")
     
+    def _extract_html_css(self, tree, html_parts=None, css_parts=None):
+        """Recursively extract Html and Css widgets from component tree"""
+        if html_parts is None:
+            html_parts = []
+        if css_parts is None:
+            css_parts = []
+        
+        if isinstance(tree, dict):
+            widget_type = tree.get('type', '')
+            props = tree.get('props', {})
+            
+            # Extract Html widgets
+            if widget_type == 'Html':
+                html_content = props.get('html', '')
+                if html_content:
+                    html_parts.append(html_content)
+            
+            # Extract Css widgets
+            elif widget_type == 'Css':
+                css_content = props.get('css', '')
+                if css_content:
+                    css_parts.append(css_content)
+            
+            # Recursively process children
+            children = tree.get('children', [])
+            for child in children:
+                self._extract_html_css(child, html_parts, css_parts)
+        
+        elif isinstance(tree, list):
+            for item in tree:
+                self._extract_html_css(item, html_parts, css_parts)
+        
+        return html_parts, css_parts
+    
     def create_html(self, tree):
         """Create production HTML file"""
+        # Extract Html and Css widgets
+        html_parts, css_parts = self._extract_html_css(tree)
+        
+        # Combine extracted CSS
+        custom_css = '\n'.join(css_parts)
+        
+        # Combine extracted HTML (will be injected into body)
+        custom_html = '\n'.join(html_parts)
+        
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,9 +111,11 @@ class Builder:
             width: 100%;
             min-height: 100vh;
         }}
+        {custom_css}
     </style>
 </head>
 <body>
+    {custom_html}
     <div id="app"></div>
     <script src="dreamweb.js"></script>
 </body>
