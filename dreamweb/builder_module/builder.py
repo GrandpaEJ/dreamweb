@@ -29,14 +29,17 @@ class Builder:
             shutil.rmtree(self.output_dir)
         self.output_dir.mkdir(parents=True)
         
-        # Generate component tree
-        tree = self.app._widget_to_dict(self.app.build())
-        
+        # Generate component tree and data
+        data = json.loads(self.app._serialize())
+        tree = data['tree']
+        states = data['states']
+        handlers = data['handlers']
+
         # Create index.html
         self.create_html(tree)
-        
+
         # Create dreamweb.js (minified runtime)
-        self.create_js(tree)
+        self.create_js(tree, states, handlers)
         
         print(f"✅ Build complete!")
         print(f"📦 Output: {self.output_dir.absolute()}")
@@ -125,7 +128,7 @@ class Builder:
         with open(output_file, 'w') as f:
             f.write(html)
     
-    def create_js(self, tree):
+    def create_js(self, tree, states, handlers):
         """Create production JavaScript file"""
         # Read runtime.js from new location
         runtime_path = Path(__file__).parent.parent / 'runtime' / 'runtime.js'
@@ -135,16 +138,20 @@ class Builder:
         # Remove hot reload code for production
         runtime_code = runtime_code.replace('this.setupHotReload();', '// Hot reload disabled in production')
         
-        # Embed component tree
+        # Embed component tree, states, and handlers
         tree_json = json.dumps(tree)
+        states_json = json.dumps(states)
+        handlers_json = json.dumps(handlers)
         
         js_code = f"""{runtime_code}
 
 // Initialize app
 (function() {{
     const componentTree = {tree_json};
+    const initialStates = {states_json};
+    const handlers = {handlers_json};
     const runtime = new DreamWebRuntime(document.getElementById('app'));
-    runtime.init(componentTree);
+    runtime.init(componentTree, initialStates, handlers);
 }})();
 """
         
