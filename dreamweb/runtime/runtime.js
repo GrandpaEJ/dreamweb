@@ -10,12 +10,20 @@ class DreamWebRuntime {
         this.componentTree = null;
         this.eventHandlers = new Map();
         this.stateValues = new Map();
+        this.handlers = {};
         this.ws = null;
     }
 
     // Initialize the runtime
-    init(componentTree) {
+    init(componentTree, initialStates = {}, handlers = {}) {
         this.componentTree = componentTree;
+        this.handlers = handlers;
+        
+        // Initialize states
+        for (const [name, value] of Object.entries(initialStates)) {
+            this.stateValues.set(name, value);
+        }
+        
         this.render();
         this.setupHotReload();
     }
@@ -70,7 +78,15 @@ class DreamWebRuntime {
             case 'Text':
                 element = document.createElement('span');
                 this.applyTextStyles(element, component.props);
-                element.textContent = component.props.text;
+                
+                // Handle dynamic text that might reference state
+                let textContent = component.props.text;
+                if (textContent && textContent.includes('self.count.value')) {
+                    // Replace state references with actual values
+                    textContent = textContent.replace('self.count.value', this.stateValues.get('count') || 0);
+                }
+                
+                element.textContent = textContent;
                 break;
 
             case 'Heading':
@@ -332,7 +348,34 @@ class DreamWebRuntime {
     }
 
     handleEvent(eventType, handlerId, value) {
-        // Send event to Python backend
+        // Check if we have a serialized handler for this event
+        if (this.handlers[handlerId]) {
+            try {
+                // Create a state object that mimics the Python State
+                const runtime = this; // Capture the runtime instance
+                const state = {
+                    count: {
+                        set: (newValue) => {
+                            runtime.stateValues.set('count', newValue);
+                            runtime.render();
+                        },
+                        get value() {
+                            return runtime.stateValues.get('count') || 0;
+                        }
+                    }
+                };
+                
+                // Execute the serialized handler code in a function scope that includes state
+                const handlerCode = this.handlers[handlerId];
+                const handlerFunction = new Function('state', handlerCode);
+                handlerFunction(state);
+                return;
+            } catch (error) {
+                console.error('Error executing handler:', error);
+            }
+        }
+        
+        // Fallback to WebSocket for dev mode
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
                 type: 'event',
