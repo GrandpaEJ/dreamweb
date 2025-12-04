@@ -12,3 +12,7 @@ wheels/
 # Lock files
 uv.lock
 !docs/web/build
+
+# Design and planning documents
+plan.md
+design/

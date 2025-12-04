@@ -5,6 +5,7 @@ Command-line interface for DreamWeb
 import sys
 import argparse
 from pathlib import Path
+from typing import Optional
 
 
 def create_project(name: str):
@@ -38,7 +39,7 @@ class {name.capitalize()}App(App):
             ]
         )
         self.count = State(0)
-    
+
     def build(self):
         return Container(
             width="100%",
@@ -84,10 +85,10 @@ class {name.capitalize()}App(App):
 
 if __name__ == "__main__":
     {name.capitalize()}App().run(dev=True)
-"""
-    
+'''
+
     with open(project_dir / "main.py", 'w') as f:
-        f.write(main_py)
+        f.write(main_content)
     
     print(f"""
 ✅ Created project '{name}'!
@@ -117,18 +118,26 @@ def run_dev(port: int, host: str):
     except KeyboardInterrupt:
         pass
 
-def run_build(output: str):
+def run_build(output: str, app_file: Optional[str] = None):
     """Build for production"""
-    if not Path("main.py").exists():
+    if app_file:
+        # Build specific file
+        app_path = Path(app_file)
+        if not app_path.exists():
+            print(f"❌ File '{app_file}' not found!")
+            return
+    elif not Path("main.py").exists():
         print("❌ main.py not found! Are you in a DreamWeb project directory?")
         return
-    
-    print(f"📦 Building project to {output}...")
+    else:
+        app_path = Path("main.py")
+
+    print(f"📦 Building {app_path} to {output}...")
     env = os.environ.copy()
     env['DREAMWEB_BUILD'] = '1'
-    
+
     try:
-        subprocess.run([sys.executable, "main.py"], env=env)
+        subprocess.run([sys.executable, str(app_path)], env=env)
     except Exception as e:
         print(f"❌ Build failed: {e}")
 
@@ -149,6 +158,7 @@ def main():
     # Build command
     build_parser = subparsers.add_parser('build', help='Build for production')
     build_parser.add_argument('--output', default='build', help='Output directory')
+    build_parser.add_argument('app_file', nargs='?', help='App file to build (optional, defaults to main.py)')
     
     args = parser.parse_args()
     
@@ -157,7 +167,7 @@ def main():
     elif args.command == 'dev':
         run_dev(args.port, args.host)
     elif args.command == 'build':
-        run_build(args.output)
+        run_build(args.output, getattr(args, 'app_file', None))
     else:
         parser.print_help()
 
