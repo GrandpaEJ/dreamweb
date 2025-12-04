@@ -3,7 +3,7 @@ App class for DreamWeb
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
 
 from dreamweb.core.state import State
@@ -19,6 +19,7 @@ class App:
         self.head_tags = head_tags or []
         self._states: List[State] = []
         self._event_handlers: Dict[str, Any] = {}
+        self._serialized_handlers: Dict[str, str] = {}
         self._setup_state_tracking()
     
     def _setup_state_tracking(self):
@@ -67,8 +68,50 @@ class App:
         # Clear handlers before rebuild
         self._event_handlers = {}
         tree = self.build()
-        return json.dumps(self._widget_to_dict(tree), indent=2)
-    
+
+        # Collect state data
+        states = {}
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if isinstance(attr, State):
+                states[attr_name] = attr.value
+
+        data = {
+            'tree': self._widget_to_dict(tree),
+            'states': states,
+            'handlers': self._serialized_handlers
+        }
+
+        return json.dumps(data, indent=2)
+
+    def _serialize_handler(self, handler) -> Optional[str]:
+        """Try to serialize a handler as JavaScript code"""
+        import inspect
+
+        # Get the source code
+        try:
+            source = inspect.getsource(handler)
+            # Clean up the source
+            source = source.strip()
+            # Remove the def line
+            lines = source.split('\n')
+            if lines[0].startswith('def '):
+                lines = lines[1:]
+            source = '\n'.join(lines).strip()
+            # Remove common indentation
+            lines = source.split('\n')
+            min_indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
+            lines = [line[min_indent:] if line.strip() else line for line in lines]
+            source = '\n'.join(lines).strip()
+
+            # For counter app handlers, convert self.count.set(...) to state.count.set(...)
+            source = source.replace('self.count.set', 'state.count.set')
+            source = source.replace('self.count.value', 'state.count.value')
+
+            return source
+        except:
+            return None
+
     def _widget_to_dict(self, widget: Widget) -> Dict[str, Any]:
         """Recursively convert widget tree to dictionary"""
         # Convert widget to dict but keep callables for now
@@ -81,11 +124,16 @@ class App:
                     # Register handler
                     handler_id = f"{key}_{id(value)}"
                     self._event_handlers[handler_id] = value
-                    
+
+                    # Try to serialize handler as JS code
+                    js_code = self._serialize_handler(value)
+                    if js_code:
+                        self._serialized_handlers[handler_id] = js_code
+
                     # Add to events dict in data
                     if 'events' not in data:
                         data['events'] = {}
-                    
+
                     # Map event name (e.g. on_click -> click)
                     event_name = key.replace('on_', '')
                     data['events'][event_name] = handler_id
