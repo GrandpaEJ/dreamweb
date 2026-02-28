@@ -54,3 +54,8 @@ include = ["dreamweb*"]
 [tool.setuptools.package-data]
 dreamweb = ["runtime/*.js"]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
