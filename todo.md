@@ -1,258 +1,153 @@
-# DreamWeb TODO List
+# DreamWeb TODO
 
-## ✅ Completed Cleanup Tasks
+> Structured around the [upgrade_plan.md](./upgrade_plan.md). Work top-to-bottom — later phases depend on earlier ones.
+
+---
+
+## ✅ Completed
 
 - [x] Remove useless files (cli_usage_guide.md, docs_site.py, index.html, web/dreamweb.js, main.py, uv.lock)
 - [x] Verify core functionality still works after cleanup
 - [x] Maintain clean project structure with only essential files
 
-## Core Framework Improvements
+---
 
-- [ ] Implement JavaScript minification in production builds (builder.py line 151)
-- [ ] Add support for custom widget properties and validation
-- [ ] Implement widget lifecycle methods (mount, unmount, update)
-- [ ] Add TypeScript definitions for better IDE support
-- [ ] Implement error boundaries for widget rendering failures
-- [ ] Add widget key prop support for efficient re-rendering
-- [ ] Implement context/state sharing between components
-- [ ] Add widget composition helpers and mixins
-- [ ] Implement widget memoization/caching
-- [ ] Add support for async widget building
-- [ ] Implement widget tree diffing and patching
-- [ ] Add widget serialization/deserialization for server-side rendering
-- [ ] Implement widget testing utilities
-- [ ] Add widget performance profiling tools
-- [ ] Implement widget hot reloading for development
+## 🔴 Phase 1 — Critical Architecture Fixes
 
-## Widget Enhancements
+### 1.1 Replace Handler Serialization
 
-### Layout Widgets
-- [ ] Add Grid widget for CSS Grid layouts
-- [ ] Implement Flex widget with more advanced flexbox properties
-- [ ] Add ScrollView widget for scrollable content areas
-- [ ] Implement Tab widget for tabbed interfaces
-- [ ] Add Accordion/Collapsible widget
-- [ ] Implement Card widget for content containers
-- [ ] Add Sidebar widget for navigation layouts
-- [ ] Implement SplitView widget for resizable panels
-- [ ] Add Carousel/Swiper widget for content sliding
-- [ ] Implement Masonry layout widget
-- [ ] Add Sticky widget for position: sticky elements
-- [ ] Implement Portal widget for rendering outside DOM hierarchy
-- [ ] Add Responsive container with breakpoint handling
-- [ ] Implement Drawer/Slide-out panel widget
+- [x] Decide on runtime strategy: **persistent Python server** (WebSocket as single runtime for dev + prod)
+- [x] If Pyodide: bundle user's Python source in production build and load via Pyodide in browser
+- [x] If server-mode: WebSocket server serves both dev and prod; `builder.py` outputs `server.py` launcher
+- [x] Remove `_serialize_handler()` and all `inspect.getsource()` hacks from `core/app.py`
+- [x] Remove `new Function('state', handlerCode)` from `runtime/runtime.js`
+- [x] Remove hardcoded `self.count.set` → `state.count.set` string replacements
+
+### 1.2 Fix Dev/Prod Parity
+
+- [x] Ensure event handlers execute via the same code path in both dev and prod
+- [x] Write a test that runs the same event handler scenarios in both modes
+
+### 1.3 Virtual DOM Diffing
+
+- [x] Replace `this.root.innerHTML = ''` full re-render in `runtime.js` with a tree-diff algorithm
+- [x] Add `key` prop support to all widgets for efficient keyed reconciliation
+- [x] Implement `diff(oldTree, newTree)` → patch list → apply patches to real DOM
+- [ ] Verify: input focus is not lost on state change (manual)
+- [ ] Verify: scroll position is preserved on state change (manual)
+
+---
+
+## 🟡 Phase 2 — Developer Experience
+
+### 2.1 True Hot Module Replacement
+
+- [x] Use `importlib.reload()` to reload the user's app module on file change in `dev_server.py`
+- [x] Preserve state values across reloads (hot state preservation)
+- [ ] Show a visible reload toast/banner in the browser on hot reload
+
+### 2.2 JS Minification
+
+- [ ] Add `rjsmin` or `jsmin` as an optional dev dependency (Phase 2)
+- [ ] Run minification on `dreamweb.js` during `builder.py` production build
+- [ ] Remove the `# TODO: Minify JS in production` comment once done
+
+### 2.3 Error Boundaries
+
+- [x] Wrap every `build()` call in `try/except` in both `dev_server.py` and `builder.py`
+- [x] In dev mode: render a styled Python traceback overlay in the browser
+- [ ] In prod mode: render a graceful fallback widget (not a blank page)
+
+### 2.4 CLI Commands
+
+- [ ] `dreamweb init <name>` — scaffold a new project with boilerplate `main.py`
+- [ ] `dreamweb dev` — start dev server (replace inline `run(dev=True)`)
+- [ ] `dreamweb build` — production build (replace inline `run(dev=False)`)
+- [ ] `dreamweb doctor` — environment diagnostics (check Python version, dependencies)
+
+---
+
+## 🟢 Phase 3 — Widget Ecosystem
+
+### Layout
+
+- [ ] `Grid` — CSS Grid-based layout widget
+- [ ] `ScrollView` — overflow-scrollable container
+- [ ] `Responsive` — breakpoint-aware container (`sm`, `md`, `lg`, `xl`)
+- [ ] `Drawer` — slide-out side panel
+- [ ] `Tab` / `TabView` — tabbed interface
+- [ ] `Accordion` — collapsible sections
+- [ ] `Masonry` — Pinterest-style masonry layout
+
+### Navigation — Complete the Router
+
+- [ ] Implement hash-based (`#/path`) or History API (`/path`) client-side routing
+- [ ] Add `Router`, `Route`, and `Navigate` widgets
+- [ ] Ensure state survives route transitions (no full re-render on navigation)
+- [ ] Add `Breadcrumbs` and `Pagination` widgets
+
+### Feedback & Overlays
+
+- [ ] `Modal` / `Dialog`
+- [ ] `Toast` / `Snackbar`
+- [ ] `Tooltip`
+- [ ] `Spinner` / `ProgressBar`
+- [ ] `Alert` / `Banner`
 
 ### Input Widgets
-- [ ] Add DatePicker widget
-- [ ] Implement TimePicker widget
-- [ ] Add FileUpload widget with drag-and-drop support
-- [ ] Implement RichText editor widget
-- [ ] Add ColorPicker widget
 
-### Media Widgets
-- [ ] Add Audio widget for audio playback
-- [ ] Implement Gallery widget for image galleries
-- [ ] Add ProgressBar widget
-- [ ] Implement Chart/Graph widgets (using Chart.js or similar)
+- [ ] `DatePicker`
+- [ ] `TimePicker`
+- [ ] `FileUpload` with drag-and-drop support
+- [ ] `ColorPicker`
+- [ ] `MultiSelect`
+- [ ] `RichText` editor
 
-### Navigation Widgets
-- [ ] Complete Router widget implementation (currently incomplete)
-- [ ] Add Breadcrumbs widget
-- [ ] Implement Menu/Dropdown navigation widget
-- [ ] Add Pagination widget
+### Media
 
-### Feedback Widgets
-- [ ] Add Modal/Dialog widget
-- [ ] Implement Tooltip widget
-- [ ] Add Alert/Notification widget
-- [ ] Implement Loading spinner widget
-- [ ] Add Progress indicator widget
+- [ ] `Audio` playback widget
+- [ ] `Gallery` — image gallery
+- [ ] `Chart` — Chart.js integration
 
-## State Management
+---
 
-- [ ] Add computed/derived state functionality
-- [ ] Implement state persistence (localStorage, sessionStorage)
-- [ ] Add state debugging tools
-- [ ] Implement undo/redo functionality
-- [ ] Add state synchronization across tabs/windows
+## 🔵 Phase 4 — State Management
 
-## API Integration
+- [ ] `GlobalState` / `Store` — shared app state (no prop-drilling)
+- [ ] Allow widgets to subscribe to slices of global state
+- [ ] `Computed` — derived/computed state values (`Computed(lambda: self.count.value * 2)`)
+- [ ] `PersistentState` — auto-persist to `localStorage` / `sessionStorage`
+- [ ] Undo/redo support via state history
+- [ ] State debugging tools (time-travel debugging)
 
-- [ ] Add GraphQL support alongside REST API
-- [ ] Implement API caching and request deduplication
-- [ ] Add authentication helpers (OAuth, JWT)
-- [ ] Implement real-time subscriptions (WebSocket, SSE)
-- [ ] Add API request/response interceptors
-- [ ] Implement API mocking for development
-- [ ] Add retry logic and exponential backoff
-- [ ] Implement request cancellation
-- [ ] Add API response transformation utilities
-- [ ] Implement optimistic updates
-- [ ] Add pagination helpers for API responses
-- [ ] Implement file upload with progress tracking
-- [ ] Add API rate limiting client-side handling
-- [ ] Implement API versioning support
-- [ ] Add WebSocket connection management
-- [ ] Implement server-sent events (SSE) support
+---
 
-## Styling & Theming
+## 🟣 Phase 5 — Security & Hardening
 
-- [ ] Implement dark mode support
-- [ ] Add theme customization system
-- [ ] Implement CSS-in-JS support
-- [ ] Add responsive design utilities
-- [ ] Implement animation and transition system
-
-## Development Tools
-
-- [ ] Add hot module replacement for faster development
-- [ ] Implement component inspector/debugger
-- [ ] Add performance monitoring tools
-- [ ] Implement automated testing framework
-- [ ] Add code generation tools for widgets
-- [ ] Implement visual widget editor/designer
-- [ ] Add state debugging and time-travel debugging
-- [ ] Implement widget dependency visualization
-- [ ] Add development server with live collaboration
-- [ ] Implement A/B testing framework for widgets
-- [ ] Add widget usage analytics
-- [ ] Implement automated screenshot testing
-- [ ] Add development documentation generator
-- [ ] Implement widget playground/sandbox
-- [ ] Add development server middleware system
-
-## CLI Improvements
-
-- [ ] Add `dreamweb init` command for project setup
-- [ ] Implement `dreamweb generate` for scaffolding widgets/components
-- [ ] Add `dreamweb test` command for running tests
-- [ ] Implement `dreamweb lint` for code quality checks
-- [ ] Add `dreamweb format` for code formatting
-- [ ] Implement `dreamweb deploy` for easy deployment
-- [ ] Add `dreamweb analyze` for bundle size analysis
-- [ ] Implement `dreamweb preview` for production preview
-- [ ] Add `dreamweb update` for framework updates
-- [ ] Implement `dreamweb doctor` for environment diagnostics
-
-## Runtime & JavaScript Improvements
-
-- [ ] Optimize virtual DOM diffing algorithm
-- [ ] Implement efficient event delegation system
-- [ ] Add support for CSS custom properties/variables
-- [ ] Implement JavaScript module system for widgets
-- [ ] Add WebAssembly support for performance-critical widgets
-- [ ] Implement lazy loading for JavaScript modules
-- [ ] Add service worker integration for caching
-- [ ] Implement progressive enhancement for older browsers
-- [ ] Add JavaScript error reporting and monitoring
-- [ ] Implement memory leak detection and prevention
-- [ ] Add support for web components/custom elements
-- [ ] Implement efficient CSS-in-JS solution
-
-## Documentation & Examples
-
-- [ ] Create comprehensive tutorial series
-- [ ] Add more advanced example applications
-- [ ] Implement live code playground
-- [ ] Add migration guides for framework updates
-- [ ] Create video tutorials and screencasts
-- [ ] Add interactive documentation with live examples
-- [ ] Implement documentation search and filtering
-- [ ] Add API documentation auto-generation
-- [ ] Create cookbook with common patterns and recipes
-- [ ] Add troubleshooting guide for common issues
-- [ ] Implement documentation versioning
-- [ ] Add contribution guidelines and developer docs
-- [ ] Create performance optimization guide
-- [ ] Add accessibility (a11y) documentation
-- [ ] Implement documentation testing (doctests)
-
-## Mobile & Responsive Design
-
-- [ ] Implement touch gesture support (swipe, pinch, etc.)
-- [ ] Add mobile-first responsive utilities
-- [ ] Implement PWA (Progressive Web App) features
-- [ ] Add offline support with service workers
-- [ ] Implement mobile-specific widgets (BottomSheet, etc.)
-- [ ] Add responsive breakpoint system
-- [ ] Implement adaptive layouts for different screen sizes
-- [ ] Add mobile navigation patterns (hamburger menu, etc.)
-- [ ] Implement touch-friendly interaction design
-- [ ] Add mobile performance optimizations
-- [ ] Implement device orientation support
-- [ ] Add mobile app shell and navigation
-
-## Performance Optimizations
-
-- [ ] Implement virtual scrolling for large lists
-- [ ] Add lazy loading for widgets and images
-- [ ] Implement code splitting for production builds
-- [ ] Add service worker support for offline functionality
-- [ ] Optimize bundle size and loading times
-- [ ] Implement efficient state batching and updates
-- [ ] Add memory usage monitoring and optimization
-- [ ] Implement efficient CSS generation and caching
-- [ ] Add image optimization and WebP support
-- [ ] Implement critical CSS extraction
-- [ ] Add font loading optimization
-- [ ] Implement efficient event handling and delegation
-- [ ] Add bundle analysis and optimization tools
-- [ ] Implement tree shaking for unused code
-- [ ] Add performance budgets and monitoring
-
-## Testing & Quality
-
-- [ ] Add comprehensive unit test suite
-- [ ] Implement integration tests
-- [ ] Add end-to-end testing with Selenium/Playwright
-- [ ] Implement accessibility (a11y) testing
-- [ ] Add performance benchmarking
-
-## Deployment & DevOps
-
-- [ ] Add Docker support for easy deployment
-- [ ] Implement CI/CD pipeline configuration
-- [ ] Add cloud deployment templates (Heroku, Vercel, etc.)
-- [ ] Implement monitoring and logging
-- [ ] Add backup and recovery procedures
-
-## Community & Ecosystem
-
-- [ ] Create plugin/extension system
-- [ ] Add third-party widget marketplace
-- [ ] Implement component library sharing
-- [ ] Add internationalization (i18n) support
-- [ ] Create developer community forum
-
-## Integration & Ecosystem
-
-- [ ] Add integration with popular Python frameworks (Django, Flask, FastAPI)
-- [ ] Implement database ORM integrations
-- [ ] Add authentication system integrations (Auth0, Firebase Auth)
-- [ ] Implement payment processing widgets (Stripe, PayPal)
-- [ ] Add analytics integration (Google Analytics, Mixpanel)
-- [ ] Implement CMS integration helpers
-- [ ] Add e-commerce widget library
-- [ ] Implement social media integration widgets
-- [ ] Add email service integrations
-- [ ] Implement notification system integrations
-- [ ] Add cloud storage integrations (AWS S3, Google Cloud)
-- [ ] Implement real-time collaboration features
-- [ ] Add internationalization (i18n) framework integration
-
-## Security
-
-- [ ] Implement Content Security Policy (CSP) helpers
-- [ ] Add XSS protection utilities
-- [ ] Implement secure API key management
-- [ ] Add input validation and sanitization helpers
-- [ ] Implement rate limiting for API requests
-- [ ] Add CSRF protection for forms
-- [ ] Implement secure cookie handling
+- [ ] Remove `new Function()` / `eval()` from `runtime.js` entirely (blocked by Phase 1)
+- [ ] Add `sanitize=True` parameter to `Html()` widget, integrate DOMPurify
+- [ ] Generate strict Content Security Policy `<meta>` header in `builder.py`
+- [ ] Add CSRF protection helpers for form submissions
+- [ ] Add `XSS` protection utilities for user-generated content
 - [ ] Add HTTPS enforcement helpers
-- [ ] Implement input sanitization for HTML content
-- [ ] Add security headers configuration
-- [ ] Implement secure file upload validation
-- [ ] Add authentication state management
-- [ ] Implement secure local storage handling
-- [ ] Add security audit tools and checklists
+- [ ] Document security model and CSP compatibility
+
+---
+
+## 📋 Phase 6 — Testing & Documentation
+
+### Tests
+
+- [x] Unit tests for all widget `to_dict()` serialization (Phase 1 tests)
+- [x] Unit tests for `State` subscription and `_trigger_rebuild`
+- [x] Integration tests for `DevServer` (mock WS events via `_handle_event`, verify tree updates)
+- [ ] Snapshot/golden file tests for `Builder` HTML/JS output
+- [ ] End-to-end tests with Playwright
+
+### Documentation
+
+- [ ] Set up MkDocs or Sphinx with autodoc from existing docstrings
+- [ ] Tutorial: Hello World → Counter → Todo App → API integration
+- [ ] Widget reference with live examples
+- [ ] Migration guide for future breaking changes
+- [ ] Host docs via GitHub Pages (`.github` already present)
