@@ -115,13 +115,22 @@ class App:
 
         return data
 
-    def run(self, dev: bool = False, port: int = 8000, host: str = "localhost"):
+    def run(
+        self,
+        dev: bool = False,
+        port: int = 8000,
+        host: str = "localhost",
+        static: bool = False,
+    ):
         """Run the application"""
         import os
 
         # Check environment variable override
         if os.environ.get("DREAMWEB_BUILD"):
             dev = False
+
+        if os.environ.get("DREAMWEB_STATIC"):
+            static = True
 
         if dev:
             from dreamweb.server import DevServer
@@ -132,5 +141,5 @@ class App:
             from dreamweb.builder_module import Builder
 
             builder = Builder(self)
-            builder.build()
+            builder.build(static=static)
             print("✅ Build complete! Check the 'build' directory.")

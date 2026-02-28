@@ -1,4 +1,4 @@
-# 🚀 DreamWeb
+# 🚀 DreamWeb [-Alpha]
 
 **A Flutter-like Python Web Framework**
 
@@ -32,7 +32,7 @@ class CounterApp(App):
     def __init__(self):
         super().__init__()
         self.count = State(0)
-    
+
     def build(self):
         return Container(
             width="100%",
@@ -149,6 +149,7 @@ All styling is done through widget parameters:
 ### Colors
 
 Use named colors or hex values:
+
 - Named: `"primary"`, `"secondary"`, `"success"`, `"danger"`, `"warning"`, `"info"`
 - Basic: `"red"`, `"blue"`, `"green"`, `"purple"`, `"pink"`, etc.
 - Hex: `"#FF5733"`
@@ -182,10 +183,10 @@ class MyApp(App):
         super().__init__()
         self.counter = State(0)
         self.name = State("John")
-    
+
     def increment(self):
         self.counter.set(self.counter.value + 1)
-    
+
     def build(self):
         return Text(f"Count: {self.counter.value}")
 ```
@@ -199,12 +200,14 @@ if __name__ == "__main__":
 ```
 
 This will create a `build/` directory with:
+
 - `index.html` - Your app's HTML
 - `dreamweb.js` - Compiled and minified JavaScript
 
 ## 📖 Examples
 
 Check the `examples/` directory for:
+
 - `hello_world.py` - Simple hello world
 - `counter_app.py` - Counter with state
 - `todo_app.py` - Full todo application
@@ -214,14 +217,14 @@ Check the `examples/` directory for:
 
 ## 🆚 Comparison
 
-| Feature | DreamWeb | Flutter Web | Flet |
-|---------|----------|-------------|------|
-| Language | Python | Dart | Python |
-| Learning Curve | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Hot Reload | ✅ | ✅ | ✅ |
-| Output | HTML/JS | WASM | WebSocket |
-| Styling | Parameters | Parameters | Parameters |
-| Raw HTML/CSS | ✅ | ❌ | ❌ |
+| Feature        | DreamWeb   | Flutter Web | Flet       |
+| -------------- | ---------- | ----------- | ---------- |
+| Language       | Python     | Dart        | Python     |
+| Learning Curve | ⭐⭐       | ⭐⭐⭐⭐    | ⭐⭐⭐     |
+| Hot Reload     | ✅         | ✅          | ✅         |
+| Output         | HTML/JS    | WASM        | WebSocket  |
+| Styling        | Parameters | Parameters  | Parameters |
+| Raw HTML/CSS   | ✅         | ❌          | ❌         |
 
 ## 🤝 Contributing
 

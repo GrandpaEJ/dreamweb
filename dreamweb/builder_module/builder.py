@@ -3,7 +3,6 @@ Production builder for DreamWeb
 Compiles Python app to a self-contained deployable package (HTML shell + runtime + Python server)
 """
 
-import os
 import json
 import shutil
 from pathlib import Path
@@ -45,30 +44,39 @@ class Builder:
         self.app = app
         self.output_dir = Path(output_dir)
 
-    def build(self):
+    def build(self, static: bool = False):
         """Build the application for production"""
-        print("🔨 Building DreamWeb app...")
+        mode = "Static (Pyodide)" if static else "Server (WebSocket)"
+        print(f"🔨 Building DreamWeb app [{mode}]...")
 
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
         self.output_dir.mkdir(parents=True)
 
-        # Create the thin HTML shell
-        self.create_html()
+        if static:
+            self.create_static_html()
+            self.create_js(static=True)
+            self.create_pyodide_bundle()
+        else:
+            self.create_html()
+            self.create_js(static=False)
+            self.create_server_launcher()
 
-        # Copy the runtime JS (no embedded tree — it connects via WebSocket)
-        self.create_js()
-
-        # Write the production server launcher
-        self.create_server_launcher()
-
-        print(f"✅ Build complete!")
+        print("✅ Build complete!")
         print(f"📦 Output: {self.output_dir.absolute()}")
-        print(f"   - index.html      (browser entry point)")
-        print(f"   - dreamweb.js     (renderer + WebSocket client)")
-        print(f"   - server.py       (production server launcher)")
-        print(f"   - app_entry.py    (your app, referenced by server.py)")
-        print(f"\n🚀 To run: cd {self.output_dir} && python server.py")
+        if static:
+            print("   - index.html      (browser entry point, contains tree)")
+            print("   - dreamweb.js     (renderer + Pyodide loader)")
+            print("   - pyodide_bundle.json (Python source for browser)")
+            print(
+                "\n🚀 To run: Open index.html in a browser (or use any static server)"
+            )
+        else:
+            print("   - index.html      (browser entry point)")
+            print("   - dreamweb.js     (renderer + WebSocket client)")
+            print("   - server.py       (production server launcher)")
+            print("   - app_entry.py    (your app, referenced by server.py)")
+            print(f"\n🚀 To run: cd {self.output_dir} && python server.py")
 
     def _extract_css(self, tree, css_parts=None):
         """Recursively extract Css widgets from component tree"""
@@ -85,6 +93,45 @@ class Builder:
             for item in tree:
                 self._extract_css(item, css_parts)
         return css_parts
+
+    def create_static_html(self):
+        """Create HTML with embedded component tree for static mode"""
+        tree = self.app._widget_to_dict(self.app.build())
+        states = {}
+        for attr_name in dir(self.app):
+            attr = getattr(self.app, attr_name)
+            from dreamweb.core.state import State
+
+            if isinstance(attr, State):
+                states[attr_name] = attr.value
+
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{self.app.description}">
+    <title>{self.app.title}</title>
+    {chr(10).join(self.app.head_tags)}
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }}
+        #app {{ width: 100%; min-height: 100vh; }}
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+    <script>
+        window.isStatic = true;
+        window.componentTree = {json.dumps(tree)};
+        window.initialStates = {json.dumps(states)};
+    </script>
+    <script src="dreamweb.js"></script>
+</body>
+</html>"""
+        with open(self.output_dir / "index.html", "w") as f:
+            f.write(html)
 
     def create_html(self):
         """Create the thin HTML shell — the tree is served dynamically by the WS server"""
@@ -120,17 +167,29 @@ class Builder:
         with open(self.output_dir / "index.html", "w") as f:
             f.write(html)
 
-    def create_js(self):
+    def create_js(self, static: bool = False):
         """Copy runtime.js into the build directory"""
         runtime_path = Path(__file__).parent.parent / "runtime" / "runtime.js"
         with open(runtime_path, "r") as f:
             runtime_code = f.read()
 
-        # Strip the hot-reload comment marker; prod mode always uses WS
+        # Strip the hot-reload comment marker
         runtime_code = runtime_code.replace("// Hot reload disabled in production", "")
 
-        # Inject the auto-init bootstrap: connect to WS on the same host/port
-        bootstrap = """
+        if static:
+            bootstrap = """
+// Auto-initialize: load Pyodide and mount source
+(async function() {
+    const runtime = new DreamWebRuntime(document.getElementById('app'));
+    const success = await runtime.initPyodide('pyodide_bundle.json');
+    if (success) {
+        runtime.init(window.componentTree, window.initialStates);
+    }
+})();
+"""
+        else:
+            # Inject the auto-init bootstrap: connect to WS on the same host/port
+            bootstrap = """
 // Auto-initialize: connect to production server via WebSocket
 (function() {
     const runtime = new DreamWebRuntime(document.getElementById('app'));
@@ -140,6 +199,54 @@ class Builder:
 """
         with open(self.output_dir / "dreamweb.js", "w") as f:
             f.write(runtime_code + bootstrap)
+
+    def create_pyodide_bundle(self):
+        """Collect and bundle Python source for Pyodide"""
+        bundle = {}
+
+        # 1. Collect dreamweb package
+        # We need to find the base directory of the 'dreamweb' package
+        # Path(__file__).parent.parent is the 'dreamweb/' directory itself
+        root_dir = Path(__file__).parent.parent
+        # root_dir.parent should be the base where 'dreamweb' folder resides
+        base_dir = root_dir.parent
+
+        for path in root_dir.rglob("*.py"):
+            if "__pycache__" in str(path):
+                continue
+            # rel_path should be 'dreamweb/core/app.py' etc.
+            rel_path = path.relative_to(base_dir)
+            with open(path, "r") as f:
+                bundle[str(rel_path)] = f.read()
+
+        # 2. Add user app entry
+        import inspect
+
+        app_file = Path(inspect.getfile(type(self.app)))
+        with open(app_file, "r") as f:
+            bundle["app_entry.py"] = f.read()
+
+        # 3. Add bootstrap script for Pyodide
+        # This is the entry point that Pyodide will run to handle events
+        app_class_name = type(self.app).__name__
+        bundle[
+            "_bootstrap.py"
+        ] = f"""
+import sys, os
+import json
+from app_entry import {app_class_name}
+
+_app = {app_class_name}()
+# Pre-run build to register handlers
+_app._serialize()
+
+def handle_event(handler_id, value_json):
+    val = json.loads(value_json) if value_json else None
+    _app._handle_event(handler_id, val)
+    return _app._serialize()
+"""
+        with open(self.output_dir / "pyodide_bundle.json", "w") as f:
+            json.dump(bundle, f)
 
     def create_server_launcher(self):
         """Write the production server.py launcher into the build directory"""

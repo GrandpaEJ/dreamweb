@@ -4,6 +4,8 @@ Command-line interface for DreamWeb
 
 import sys
 import argparse
+import os
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -11,14 +13,14 @@ from typing import Optional
 def create_project(name: str):
     """Create a new DreamWeb project"""
     project_dir = Path(name)
-    
+
     if project_dir.exists():
         print(f"❌ Directory '{name}' already exists!")
         return
-    
+
     # Create project structure
     project_dir.mkdir()
-    
+
     # Create main.py
     main_content = f'''"""
 {name.capitalize()} - A DreamWeb Application
@@ -87,10 +89,11 @@ if __name__ == "__main__":
     {name.capitalize()}App().run(dev=True)
 '''
 
-    with open(project_dir / "main.py", 'w') as f:
+    with open(project_dir / "main.py", "w") as f:
         f.write(main_content)
-    
-    print(f"""
+
+    print(
+        f"""
 ✅ Created project '{name}'!
 
 To get started:
@@ -98,18 +101,16 @@ To get started:
     python main.py
 
 This will start the dev server at http://localhost:8000
-""")
+"""
+    )
 
-
-import os
-import subprocess
 
 def run_dev(port: int, host: str):
     """Run dev server"""
     if not Path("main.py").exists():
         print("❌ main.py not found! Are you in a DreamWeb project directory?")
         return
-    
+
     print(f"🚀 Starting dev server on {host}:{port}...")
     # Pass port/host via env vars or args if supported, but for now just run main.py
     # main.py usually calls run(dev=True)
@@ -118,7 +119,8 @@ def run_dev(port: int, host: str):
     except KeyboardInterrupt:
         pass
 
-def run_build(output: str, app_file: Optional[str] = None):
+
+def run_build(output: str, app_file: Optional[str] = None, static: bool = False):
     """Build for production"""
     if app_file:
         # Build specific file
@@ -132,45 +134,56 @@ def run_build(output: str, app_file: Optional[str] = None):
     else:
         app_path = Path("main.py")
 
-    print(f"📦 Building {app_path} to {output}...")
+    mode = "Static (Pyodide)" if static else "Server (WebSocket)"
+    print(f"📦 Building {app_path} ({mode}) to {output}...")
     env = os.environ.copy()
-    env['DREAMWEB_BUILD'] = '1'
+    env["DREAMWEB_BUILD"] = "1"
+    if static:
+        env["DREAMWEB_STATIC"] = "1"
 
     try:
         subprocess.run([sys.executable, str(app_path)], env=env)
     except Exception as e:
         print(f"❌ Build failed: {e}")
 
+
 def main():
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(description="DreamWeb - Python Web Framework")
-    subparsers = parser.add_subparsers(dest='command', help='Commands')
-    
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
     # Create command
-    create_parser = subparsers.add_parser('create', help='Create a new project')
-    create_parser.add_argument('name', help='Project name')
-    
+    create_parser = subparsers.add_parser("create", help="Create a new project")
+    create_parser.add_argument("name", help="Project name")
+
     # Dev command
-    dev_parser = subparsers.add_parser('dev', help='Start dev server')
-    dev_parser.add_argument('--port', type=int, default=8000, help='Port number')
-    dev_parser.add_argument('--host', default='localhost', help='Host address')
-    
+    dev_parser = subparsers.add_parser("dev", help="Start dev server")
+    dev_parser.add_argument("--port", type=int, default=8000, help="Port number")
+    dev_parser.add_argument("--host", default="localhost", help="Host address")
+
     # Build command
-    build_parser = subparsers.add_parser('build', help='Build for production')
-    build_parser.add_argument('--output', default='build', help='Output directory')
-    build_parser.add_argument('app_file', nargs='?', help='App file to build (optional, defaults to main.py)')
-    
+    build_parser = subparsers.add_parser("build", help="Build for production")
+    build_parser.add_argument("--output", default="build", help="Output directory")
+    build_parser.add_argument(
+        "--static",
+        action="store_true",
+        help="Build for serverless static hosting (Pyodide)",
+    )
+    build_parser.add_argument(
+        "app_file", nargs="?", help="App file to build (optional, defaults to main.py)"
+    )
+
     args = parser.parse_args()
-    
-    if args.command == 'create':
+
+    if args.command == "create":
         create_project(args.name)
-    elif args.command == 'dev':
+    elif args.command == "dev":
         run_dev(args.port, args.host)
-    elif args.command == 'build':
-        run_build(args.output, getattr(args, 'app_file', None))
+    elif args.command == "build":
+        run_build(args.output, getattr(args, "app_file", None), static=args.static)
     else:
         parser.print_help()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

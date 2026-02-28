@@ -76,6 +76,8 @@ class DreamWebRuntime {
         this.root = rootElement;
         this.componentTree = null;  // current vdom tree
         this.ws = null;
+        this.pyodide = null;
+        this.isStatic = window.isStatic || false; // Allow early setting
         this._domMap = new WeakMap(); // vdom node → real DOM node (for patching)
     }
 
@@ -117,6 +119,10 @@ class DreamWebRuntime {
     }
 
     setupHotReload() {
+        if (this.isStatic || window.isStatic) {
+            console.log('🛡️ Static mode detected: Hot reload disabled.');
+            return;
+        }
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             const wsPort = parseInt(window.location.port) + 1;
             this.ws = new WebSocket(`ws://${window.location.hostname}:${wsPort}`);
@@ -133,7 +139,8 @@ class DreamWebRuntime {
     }
 
     _handleServerMessage(data) {
-        if (data.type === 'reload' || data.type === 'init_tree') {
+        if (this.isStatic && data.type !== 'update') return;
+        if (data.type === 'reload' || data.type === 'init_tree' || data.type === 'update') {
             const newTree = data.tree;
             if (!this.componentTree) {
                 // First render
@@ -144,6 +151,70 @@ class DreamWebRuntime {
                 this.componentTree = newTree;
             }
             if (data.type === 'reload') console.log('🔄 Hot reload applied');
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Pyodide Support (Static Mode)
+    // -------------------------------------------------------------------------
+
+    async initPyodide(bundlePath) {
+        this.isStatic = true;
+        console.log('🐍 Loading Pyodide...');
+
+        try {
+            // 1. Load Pyodide from CDN (already included in index.html, but let's be sure)
+            if (typeof loadPyodide === 'undefined') {
+                throw new Error('Pyodide script not loaded. Check index.html');
+            }
+
+            this.pyodide = await loadPyodide();
+            console.log('🐍 Pyodide core loaded.');
+
+            // Switch to writable home directory
+            this.pyodide.FS.chdir('/home/pyodide');
+
+            // 2. Fetch the source bundle
+            const response = await fetch(bundlePath);
+            const bundle = await response.json();
+            console.log('📦 Application bundle fetched.');
+
+            // 3. Mount files to Pyodide virtual filesystem
+            for (let [path, content] of Object.entries(bundle)) {
+                if (path.startsWith('./')) path = path.substring(2);
+                if (path.startsWith('/')) path = path.substring(1);
+
+                const parts = path.split('/');
+                const filename = parts.pop();
+                let current = '';
+
+                for (const part of parts) {
+                    current += (current ? '/' : '') + part;
+                    try {
+                        this.pyodide.FS.mkdir(current);
+                    } catch (e) {
+                        // Already exists
+                    }
+                }
+
+                const writePath = current ? current + '/' + filename : filename;
+                this.pyodide.FS.writeFile(writePath, content);
+                // console.log(`📝 Wrote file: ${writePath}`); // Too verbose, uncomment for debugging
+            }
+            console.log('💾 Application files mounted to Pyodide FS.');
+
+            // 4. Add mountPoint to sys.path
+            await this.pyodide.runPythonAsync('import sys; sys.path.append("/home/pyodide")');
+            console.log(`➕ Added "/home/pyodide" to Python sys.path.`);
+
+            // 5. Initialize the app inside Pyodide
+            await this.pyodide.runPythonAsync(bundle['_bootstrap.py']);
+            console.log('✅ Pyodide initialized and application started.');
+            return true;
+        } catch (err) {
+            console.error('❌ Pyodide load failed:', err);
+            this.root.innerHTML = `<div style="padding:20px;color:red;font-family:monospace">Pyodide Load Error: ${err.message}</div>`;
+            return false;
         }
     }
 
@@ -551,7 +622,20 @@ class DreamWebRuntime {
         }
     }
 
-    _sendEvent(eventType, handlerId, value) {
+    async _sendEvent(eventType, handlerId, value) {
+        if (this.isStatic && this.pyodide) {
+            // Local execution via Pyodide
+            const valueJson = JSON.stringify(value);
+            try {
+                const resultJson = await this.pyodide.runPythonAsync(`handle_event("${handlerId}", ${valueJson ? JSON.stringify(valueJson) : 'None'})`);
+                const update = JSON.parse(resultJson);
+                this._handleServerMessage({ type: 'update', tree: update.tree });
+            } catch (err) {
+                console.error('Pyodide Event Error:', err);
+            }
+            return;
+        }
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ type: 'event', event: eventType, handler: handlerId, value }));
         } else {
