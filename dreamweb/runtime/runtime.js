@@ -1,139 +1,349 @@
-// """
-// JavaScript runtime for DreamWeb
-// Handles rendering, state management, and event handling
-// """
+// DreamWeb Runtime
+// Pure renderer + WebSocket client.
+// All application logic executes server-side in Python.
+// This file handles: rendering, virtual DOM diffing, and event forwarding.
 
-// Virtual DOM and rendering engine
+// ---------------------------------------------------------------------------
+// Virtual DOM helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Diff two vdom trees and return a list of patch operations.
+ * Patches: { type, ... }  where type is one of:
+ *   REPLACE       – replace the whole DOM node
+ *   UPDATE_PROPS  – update only changed props / style
+ *   UPDATE_TEXT   – update a text node value
+ *   SET_CHILDREN  – reconcile children list
+ */
+function diff(oldNode, newNode) {
+    if (!oldNode) return [{ type: 'REPLACE', newNode }];
+    if (!newNode) return [{ type: 'REMOVE' }];
+
+    // Different types → full replace
+    if (oldNode.type !== newNode.type) {
+        return [{ type: 'REPLACE', newNode }];
+    }
+
+    const patches = [];
+
+    // Text node diff
+    if (newNode.type === 'TextNode') {
+        if (oldNode.text !== newNode.text) {
+            patches.push({ type: 'UPDATE_TEXT', text: newNode.text });
+        }
+        return patches;
+    }
+
+    // Props diff
+    const propPatches = diffProps(oldNode.props || {}, newNode.props || {});
+    if (Object.keys(propPatches).length > 0) {
+        patches.push({ type: 'UPDATE_PROPS', props: propPatches });
+    }
+
+    // Events diff
+    const oldEvents = oldNode.events || {};
+    const newEvents = newNode.events || {};
+    if (JSON.stringify(oldEvents) !== JSON.stringify(newEvents)) {
+        patches.push({ type: 'UPDATE_EVENTS', events: newEvents });
+    }
+
+    // Children diff
+    const oldChildren = oldNode.children || [];
+    const newChildren = newNode.children || [];
+    patches.push({ type: 'SET_CHILDREN', oldChildren, newChildren });
+
+    return patches;
+}
+
+function diffProps(oldProps, newProps) {
+    const changes = {};
+    const allKeys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
+    for (const key of allKeys) {
+        if (key === 'children') continue;
+        if (JSON.stringify(oldProps[key]) !== JSON.stringify(newProps[key])) {
+            changes[key] = newProps[key];
+        }
+    }
+    return changes;
+}
+
+// ---------------------------------------------------------------------------
+// DreamWebRuntime
+// ---------------------------------------------------------------------------
+
 class DreamWebRuntime {
     constructor(rootElement) {
         this.root = rootElement;
-        this.componentTree = null;
-        this.eventHandlers = new Map();
-        this.stateValues = new Map();
-        this.handlers = {};
+        this.componentTree = null;  // current vdom tree
         this.ws = null;
+        this._domMap = new WeakMap(); // vdom node → real DOM node (for patching)
     }
 
-    // Initialize the runtime
-    init(componentTree, initialStates = {}, handlers = {}) {
+    // -------------------------------------------------------------------------
+    // Connection
+    // -------------------------------------------------------------------------
+
+    /** Dev mode: server provides the initial tree over HTTP, WS handles updates */
+    init(componentTree, initialStates = {}) {
         this.componentTree = componentTree;
-        this.handlers = handlers;
-        
-        // Initialize states
-        for (const [name, value] of Object.entries(initialStates)) {
-            this.stateValues.set(name, value);
-        }
-        
-        this.render();
+        this._render();
         this.setupHotReload();
     }
 
-    // Render the component tree
-    render() {
-        this.root.innerHTML = '';
-        const element = this.createElement(this.componentTree);
-        this.root.appendChild(element);
+    /** Prod mode: connect to WS server which sends the initial tree */
+    connectAndInit(host, wsPort) {
+        const wsUrl = `ws://${host}:${wsPort}`;
+        this.ws = new WebSocket(wsUrl);
+
+        this.ws.onopen = () => {
+            console.log('🔌 Connected to DreamWeb server');
+            // Request the initial tree
+            this.ws.send(JSON.stringify({ type: 'init' }));
+        };
+
+        this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this._handleServerMessage(data);
+        };
+
+        this.ws.onclose = () => {
+            console.log('🔌 Disconnected — reconnecting in 1s...');
+            setTimeout(() => this.connectAndInit(host, wsPort), 1000);
+        };
+
+        this.ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+        };
     }
 
-    // Create DOM element from component
+    setupHotReload() {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            const wsPort = parseInt(window.location.port) + 1;
+            this.ws = new WebSocket(`ws://${window.location.hostname}:${wsPort}`);
+
+            this.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                this._handleServerMessage(data);
+            };
+
+            this.ws.onclose = () => {
+                setTimeout(() => this.setupHotReload(), 1000);
+            };
+        }
+    }
+
+    _handleServerMessage(data) {
+        if (data.type === 'reload' || data.type === 'init_tree') {
+            const newTree = data.tree;
+            if (!this.componentTree) {
+                // First render
+                this.componentTree = newTree;
+                this._render();
+            } else {
+                this._patch(this.root.firstChild, this.componentTree, newTree);
+                this.componentTree = newTree;
+            }
+            if (data.type === 'reload') console.log('🔄 Hot reload applied');
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Rendering
+    // -------------------------------------------------------------------------
+
+    _render() {
+        this.root.innerHTML = '';
+        const el = this.createElement(this.componentTree);
+        if (el) this.root.appendChild(el);
+    }
+
+    /**
+     * Patch a real DOM node given old and new vdom nodes.
+     * Returns the (possibly replaced) DOM node.
+     */
+    _patch(domNode, oldNode, newNode) {
+        const patches = diff(oldNode, newNode);
+
+        for (const patch of patches) {
+            if (patch.type === 'REPLACE') {
+                const newDom = this.createElement(patch.newNode);
+                if (domNode && domNode.parentNode) {
+                    domNode.parentNode.replaceChild(newDom, domNode);
+                }
+                domNode = newDom;
+            } else if (patch.type === 'REMOVE') {
+                if (domNode && domNode.parentNode) {
+                    domNode.parentNode.removeChild(domNode);
+                }
+                domNode = null;
+            } else if (patch.type === 'UPDATE_TEXT') {
+                domNode.textContent = patch.text;
+            } else if (patch.type === 'UPDATE_PROPS') {
+                this._applyPropUpdates(domNode, oldNode, patch.props);
+            } else if (patch.type === 'UPDATE_EVENTS') {
+                this._reattachEvents(domNode, patch.events);
+            } else if (patch.type === 'SET_CHILDREN') {
+                this._reconcileChildren(domNode, patch.oldChildren, patch.newChildren);
+            }
+        }
+
+        return domNode;
+    }
+
+    /**
+     * Reconcile a DOM node's children list.
+     * Uses the `key` prop for stable matching when present.
+     */
+    _reconcileChildren(parentDom, oldChildren, newChildren) {
+        const oldKeyed = new Map();
+        const oldIndexed = [];
+
+        oldChildren.forEach((child, i) => {
+            const key = child && child.props && child.props.key;
+            if (key != null) {
+                oldKeyed.set(String(key), { vnode: child, dom: parentDom.childNodes[i] });
+            } else {
+                oldIndexed.push({ vnode: child, dom: parentDom.childNodes[i] });
+            }
+        });
+
+        const usedKeys = new Set();
+        const newDoms = newChildren.map((newChild) => {
+            if (!newChild) return null;
+            const key = newChild.props && newChild.props.key;
+            if (key != null) {
+                const strKey = String(key);
+                usedKeys.add(strKey);
+                if (oldKeyed.has(strKey)) {
+                    const { vnode: oldChild, dom: oldDom } = oldKeyed.get(strKey);
+                    return this._patch(oldDom, oldChild, newChild);
+                }
+                // New keyed node — create fresh
+                return this.createElement(newChild);
+            }
+            // Unkeyed — match by index
+            const match = oldIndexed.shift();
+            if (match) {
+                return this._patch(match.dom, match.vnode, newChild);
+            }
+            return this.createElement(newChild);
+        });
+
+        // Remove old keyed nodes no longer present
+        for (const [k, { dom }] of oldKeyed) {
+            if (!usedKeys.has(k) && dom && dom.parentNode) dom.parentNode.removeChild(dom);
+        }
+        // Remove leftover unmatched old indexed nodes
+        for (const { dom } of oldIndexed) {
+            if (dom && dom.parentNode) dom.parentNode.removeChild(dom);
+        }
+
+        // Re-order/append new nodes
+        newDoms.forEach((newDom, i) => {
+            if (!newDom) return;
+            const current = parentDom.childNodes[i];
+            if (current !== newDom) {
+                parentDom.insertBefore(newDom, current || null);
+            }
+        });
+    }
+
+    _applyPropUpdates(domNode, oldVNode, changedProps) {
+        // Re-apply all styles by rebuilding from scratch on the node type
+        const type = oldVNode && oldVNode.type;
+        const mergedProps = Object.assign({}, (oldVNode && oldVNode.props) || {}, changedProps);
+        switch (type) {
+            case 'Container': this.applyContainerStyles(domNode, mergedProps); break;
+            case 'Row': this.applyRowStyles(domNode, mergedProps); break;
+            case 'Column': this.applyColumnStyles(domNode, mergedProps); break;
+            case 'Text': case 'Heading': this.applyTextStyles(domNode, mergedProps); break;
+        }
+    }
+
+    _reattachEvents(domNode, events) {
+        // Clone node to remove all existing listeners, then re-attach
+        const clone = domNode.cloneNode(true);
+        domNode.parentNode && domNode.parentNode.replaceChild(clone, domNode);
+        this.attachEvents(clone, events);
+    }
+
+    // -------------------------------------------------------------------------
+    // Element creation (same as before, unchanged API surface)
+    // -------------------------------------------------------------------------
+
     createElement(component) {
         if (!component) return document.createTextNode('');
 
-        // Handle text nodes
         if (component.type === 'TextNode') {
-            return document.createTextNode(component.text);
+            return document.createTextNode(component.text || '');
         }
 
         let element;
 
-        // Create element based on type
         switch (component.type) {
             case 'Container':
+                element = document.createElement('div');
+                this.applyContainerStyles(element, component.props);
+                break;
             case 'Row':
+                element = document.createElement('div');
+                this.applyRowStyles(element, component.props);
+                break;
             case 'Column':
+                element = document.createElement('div');
+                this.applyColumnStyles(element, component.props);
+                break;
             case 'Center':
+                element = document.createElement('div');
+                element.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;';
+                break;
             case 'Stack':
+                element = document.createElement('div');
+                element.style.cssText = 'position:relative;width:100%;height:100%;';
+                break;
             case 'Spacer':
                 element = document.createElement('div');
-                if (component.type === 'Container') this.applyContainerStyles(element, component.props);
-                else if (component.type === 'Row') this.applyRowStyles(element, component.props);
-                else if (component.type === 'Column') this.applyColumnStyles(element, component.props);
-                else if (component.type === 'Center') {
-                    element.style.display = 'flex';
-                    element.style.alignItems = 'center';
-                    element.style.justifyContent = 'center';
-                    element.style.width = '100%';
-                    element.style.height = '100%';
-                }
-                else if (component.type === 'Stack') {
-                    element.style.position = 'relative';
-                    element.style.width = '100%';
-                    element.style.height = '100%';
-                }
-                else if (component.type === 'Spacer') {
-                    element.style.flex = component.props.size ? `0 0 ${component.props.size}px` : '1';
-                }
+                element.style.flex = component.props && component.props.size ? `0 0 ${component.props.size}px` : '1';
                 break;
-
             case 'Text':
                 element = document.createElement('span');
                 this.applyTextStyles(element, component.props);
-                
-                // Handle dynamic text that might reference state
-                let textContent = component.props.text;
-                if (textContent && textContent.includes('self.count.value')) {
-                    // Replace state references with actual values
-                    textContent = textContent.replace('self.count.value', this.stateValues.get('count') || 0);
-                }
-                
-                element.textContent = textContent;
+                element.textContent = (component.props && component.props.text) || '';
                 break;
-
             case 'Heading':
-                element = document.createElement(`h${component.props.level || 1}`);
+                element = document.createElement(`h${(component.props && component.props.level) || 1}`);
                 this.applyTextStyles(element, component.props);
-                element.textContent = component.props.text;
+                element.textContent = (component.props && component.props.text) || '';
                 break;
-
             case 'Button':
                 element = this.createButton(component);
                 break;
-
             case 'TextField':
                 element = this.createTextField(component);
                 break;
-
             case 'Checkbox':
                 element = this.createCheckbox(component);
                 break;
-
             case 'Image':
                 element = this.createImage(component);
                 break;
-
             case 'Link':
                 element = this.createLink(component);
                 break;
-
             case 'Html':
                 element = document.createElement('div');
-                element.innerHTML = component.props.html;
+                element.innerHTML = (component.props && component.props.html) || '';
                 break;
-
             case 'Css':
                 element = document.createElement('style');
-                element.textContent = component.props.css;
+                element.textContent = (component.props && component.props.css) || '';
                 break;
-
             case 'ApiRequest':
             case 'FetchData':
-                // API widgets don't render visible elements
                 element = document.createElement('div');
                 element.style.display = 'none';
-                // Trigger the API request
                 this.handleApiRequest(component);
                 break;
-
             default:
                 console.warn(`Unknown component type: ${component.type}`);
                 element = document.createElement('div');
@@ -141,18 +351,15 @@ class DreamWebRuntime {
 
         // Render children
         if (component.children && component.children.length > 0) {
-            // Some components might handle children internally or not support them
-            // For now, we append children to all container-like elements
-            // Button, Input etc usually don't have children in this model
             if (!['Button', 'TextField', 'Checkbox', 'Image', 'Css'].includes(component.type)) {
                 component.children.forEach(child => {
-                    const childElement = this.createElement(child);
-                    element.appendChild(childElement);
+                    const childEl = this.createElement(child);
+                    if (childEl) element.appendChild(childEl);
                 });
             }
         }
 
-        // Attach event handlers
+        // Attach event handlers (forwarded to Python server via WS)
         if (component.events) {
             this.attachEvents(element, component.events);
         }
@@ -160,15 +367,18 @@ class DreamWebRuntime {
         return element;
     }
 
-    // Style application methods
+    // -------------------------------------------------------------------------
+    // Style application
+    // -------------------------------------------------------------------------
+
     applyContainerStyles(element, props) {
+        if (!props) return;
         const styles = {
             display: 'flex',
             flexDirection: props.direction || 'column',
             alignItems: this.mapAlign(props.align),
             justifyContent: this.mapJustify(props.justify),
         };
-
         if (props.width) styles.width = this.parseSize(props.width);
         if (props.height) styles.height = this.parseSize(props.height);
         if (props.padding) styles.padding = this.parseSpacing(props.padding);
@@ -177,36 +387,35 @@ class DreamWebRuntime {
         if (props.border) this.applyBorder(element, props.border);
         if (props.rounded) styles.borderRadius = this.parseRounded(props.rounded);
         if (props.shadow) styles.boxShadow = this.parseShadow(props.shadow);
-
         Object.assign(element.style, styles);
     }
 
     applyRowStyles(element, props) {
-        const styles = {
+        if (!props) return;
+        Object.assign(element.style, {
             display: 'flex',
             flexDirection: 'row',
             alignItems: this.mapAlign(props.align),
             justifyContent: this.mapJustify(props.justify),
             gap: `${props.spacing || 0}px`,
-            flexWrap: props.wrap ? 'wrap' : 'nowrap'
-        };
-        Object.assign(element.style, styles);
+            flexWrap: props.wrap ? 'wrap' : 'nowrap',
+        });
     }
 
     applyColumnStyles(element, props) {
-        const styles = {
+        if (!props) return;
+        Object.assign(element.style, {
             display: 'flex',
             flexDirection: 'column',
             alignItems: this.mapAlign(props.align),
             justifyContent: this.mapJustify(props.justify),
-            gap: `${props.spacing || 0}px`
-        };
-        Object.assign(element.style, styles);
+            gap: `${props.spacing || 0}px`,
+        });
     }
 
     applyTextStyles(element, props) {
+        if (!props) return;
         const styles = {};
-
         if (props.size) styles.fontSize = this.parseFontSize(props.size);
         if (props.weight) styles.fontWeight = this.parseFontWeight(props.weight);
         if (props.color) styles.color = this.parseColor(props.color);
@@ -214,33 +423,29 @@ class DreamWebRuntime {
         if (props.italic) styles.fontStyle = 'italic';
         if (props.underline) styles.textDecoration = 'underline';
         if (props.font) styles.fontFamily = props.font;
-
         Object.assign(element.style, styles);
     }
 
-    // Widget creation methods
+    // -------------------------------------------------------------------------
+    // Widget creators
+    // -------------------------------------------------------------------------
+
     createButton(component) {
         const button = document.createElement('button');
-        button.textContent = component.props.text;
-
-        const styles = {
-            padding: this.parseButtonSize(component.props.size),
-            fontSize: this.parseButtonFontSize(component.props.size),
-            borderRadius: component.props.rounded ? '0.375rem' : '0',
+        const props = component.props || {};
+        button.textContent = props.text || '';
+        Object.assign(button.style, {
+            padding: this.parseButtonSize(props.size),
+            fontSize: this.parseButtonFontSize(props.size),
+            borderRadius: props.rounded ? '0.375rem' : '0',
             border: 'none',
-            cursor: component.props.disabled ? 'not-allowed' : 'pointer',
-            opacity: component.props.disabled ? '0.5' : '1',
+            cursor: props.disabled ? 'not-allowed' : 'pointer',
+            opacity: props.disabled ? '0.5' : '1',
             fontWeight: '500',
-            transition: 'all 0.2s'
-        };
-
-        // Apply variant styles
-        const colors = this.getButtonColors(component.props.color, component.props.variant);
-        Object.assign(styles, colors);
-        Object.assign(button.style, styles);
-
-        // Hover effect
-        if (!component.props.disabled) {
+            transition: 'all 0.2s',
+        });
+        Object.assign(button.style, this.getButtonColors(props.color, props.variant));
+        if (!props.disabled) {
             button.addEventListener('mouseenter', () => {
                 button.style.transform = 'translateY(-1px)';
                 button.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
@@ -250,225 +455,144 @@ class DreamWebRuntime {
                 button.style.boxShadow = 'none';
             });
         }
-
         return button;
     }
 
     createTextField(component) {
         const input = document.createElement('input');
-        input.type = component.props.type || 'text';
-        input.placeholder = component.props.placeholder || '';
-        input.value = component.props.value || '';
-        input.disabled = component.props.disabled || false;
-
-        const styles = {
+        const props = component.props || {};
+        input.type = props.type || 'text';
+        input.placeholder = props.placeholder || '';
+        input.value = props.value || '';
+        input.disabled = props.disabled || false;
+        Object.assign(input.style, {
             padding: '0.5rem 0.75rem',
             fontSize: '1rem',
             border: '1px solid #d1d5db',
             borderRadius: '0.375rem',
             outline: 'none',
-            transition: 'all 0.2s'
-        };
-        Object.assign(input.style, styles);
-
+            transition: 'all 0.2s',
+        });
         input.addEventListener('focus', () => {
             input.style.borderColor = '#3b82f6';
-            input.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+            input.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
         });
         input.addEventListener('blur', () => {
             input.style.borderColor = '#d1d5db';
             input.style.boxShadow = 'none';
         });
-
         return input;
     }
 
     createCheckbox(component) {
         const label = document.createElement('label');
-        label.style.display = 'flex';
-        label.style.alignItems = 'center';
-        label.style.gap = '0.5rem';
-        label.style.cursor = 'pointer';
-
+        Object.assign(label.style, { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' });
         const input = document.createElement('input');
+        const props = component.props || {};
         input.type = 'checkbox';
-        input.checked = component.props.checked || false;
-        input.disabled = component.props.disabled || false;
-
+        input.checked = props.checked || false;
+        input.disabled = props.disabled || false;
         const span = document.createElement('span');
-        span.textContent = component.props.label || '';
-
+        span.textContent = props.label || '';
         label.appendChild(input);
         label.appendChild(span);
-
         return label;
     }
 
     createImage(component) {
         const img = document.createElement('img');
-        img.src = component.props.src;
-        img.alt = component.props.alt || '';
-
+        const props = component.props || {};
+        img.src = props.src || '';
+        img.alt = props.alt || '';
         const styles = {};
-        if (component.props.width) styles.width = this.parseSize(component.props.width);
-        if (component.props.height) styles.height = this.parseSize(component.props.height);
-        if (component.props.fit) styles.objectFit = component.props.fit;
-        if (component.props.rounded) styles.borderRadius = this.parseRounded(component.props.rounded);
-
+        if (props.width) styles.width = this.parseSize(props.width);
+        if (props.height) styles.height = this.parseSize(props.height);
+        if (props.fit) styles.objectFit = props.fit;
+        if (props.rounded) styles.borderRadius = this.parseRounded(props.rounded);
         Object.assign(img.style, styles);
         return img;
     }
 
     createLink(component) {
         const a = document.createElement('a');
-        a.href = component.props.to;
-        a.textContent = component.props.text;
-
-        const styles = {
-            color: this.parseColor(component.props.color),
-            textDecoration: component.props.underline ? 'underline' : 'none'
-        };
-        Object.assign(a.style, styles);
-
+        const props = component.props || {};
+        a.href = props.to || '#';
+        a.textContent = props.text || '';
+        Object.assign(a.style, {
+            color: this.parseColor(props.color),
+            textDecoration: props.underline ? 'underline' : 'none',
+        });
         return a;
     }
 
-    // Event handling
+    // -------------------------------------------------------------------------
+    // Event handling — all events forwarded to Python via WebSocket
+    // -------------------------------------------------------------------------
+
     attachEvents(element, events) {
+        if (!events) return;
         if (events.click) {
-            element.addEventListener('click', () => {
-                this.handleEvent('click', events.click);
-            });
+            element.addEventListener('click', () => this._sendEvent('click', events.click, null));
         }
         if (events.change) {
-            element.addEventListener('change', (e) => {
-                this.handleEvent('change', events.change, e.target.value);
-            });
+            element.addEventListener('change', (e) => this._sendEvent('change', events.change, e.target.value));
+        }
+        if (events.input) {
+            element.addEventListener('input', (e) => this._sendEvent('input', events.input, e.target.value));
         }
     }
 
-    handleEvent(eventType, handlerId, value) {
-        // Check if we have a serialized handler for this event
-        if (this.handlers[handlerId]) {
-            try {
-                // Create a state object that mimics the Python State
-                const runtime = this; // Capture the runtime instance
-                const state = {
-                    count: {
-                        set: (newValue) => {
-                            runtime.stateValues.set('count', newValue);
-                            runtime.render();
-                        },
-                        get value() {
-                            return runtime.stateValues.get('count') || 0;
-                        }
-                    }
-                };
-                
-                // Execute the serialized handler code in a function scope that includes state
-                const handlerCode = this.handlers[handlerId];
-                const handlerFunction = new Function('state', handlerCode);
-                handlerFunction(state);
-                return;
-            } catch (error) {
-                console.error('Error executing handler:', error);
-            }
-        }
-        
-        // Fallback to WebSocket for dev mode
+    _sendEvent(eventType, handlerId, value) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'event',
-                event: eventType,
-                handler: handlerId,
-                value: value
-            }));
+            this.ws.send(JSON.stringify({ type: 'event', event: eventType, handler: handlerId, value }));
+        } else {
+            console.warn('DreamWeb: WebSocket not connected — event dropped:', eventType, handlerId);
         }
     }
 
-    // Handle API requests
-    async handleApiRequest(component) {
-        const { url, method, headers, body, auto_fetch, credentials, callbacks } = component.props;
+    // -------------------------------------------------------------------------
+    // API request widget (browser-side only, not forwarded to Python)
+    // -------------------------------------------------------------------------
 
-        // Only fetch if auto_fetch is true (default)
-        if (auto_fetch === false) {
-            return;
-        }
+    async handleApiRequest(component) {
+        const props = component.props || {};
+        const { url, method, headers, body, auto_fetch, credentials, callbacks } = props;
+        if (auto_fetch === false) return;
 
         try {
-            // Notify loading started
-            if (callbacks && callbacks.on_loading) {
-                this.handleEvent('api_loading', callbacks.on_loading, true);
-            }
+            if (callbacks && callbacks.on_loading) this._sendEvent('api_loading', callbacks.on_loading, true);
 
-            // Prepare fetch options
             const fetchOptions = {
                 method: (method || 'GET').toUpperCase(),
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(headers || {})
-                },
-                credentials: credentials || 'same-origin'
+                headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+                credentials: credentials || 'same-origin',
             };
-
-            // Add body if present (and not GET/HEAD)
             if (body && !['GET', 'HEAD'].includes(fetchOptions.method)) {
-                if (typeof body === 'object') {
-                    fetchOptions.body = JSON.stringify(body);
-                } else {
-                    fetchOptions.body = body;
-                }
+                fetchOptions.body = typeof body === 'object' ? JSON.stringify(body) : body;
             }
 
-            // Make the request
             const response = await fetch(url, fetchOptions);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
-            // Check if response is ok
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            // Parse response
-            const contentType = response.headers.get('content-type');
+            const contentType = response.headers.get('content-type') || '';
             let data;
+            if (contentType.includes('application/json')) data = await response.json();
+            else if (contentType.includes('text/')) data = await response.text();
+            else data = await response.blob();
 
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-            } else if (contentType && contentType.includes('text/')) {
-                data = await response.text();
-            } else {
-                data = await response.blob();
-            }
-
-            // Notify loading finished
-            if (callbacks && callbacks.on_loading) {
-                this.handleEvent('api_loading', callbacks.on_loading, false);
-            }
-
-            // Call success callback
-            if (callbacks && callbacks.on_success) {
-                this.handleEvent('api_success', callbacks.on_success, data);
-            }
-
+            if (callbacks && callbacks.on_loading) this._sendEvent('api_loading', callbacks.on_loading, false);
+            if (callbacks && callbacks.on_success) this._sendEvent('api_success', callbacks.on_success, data);
         } catch (error) {
-            // Notify loading finished
-            if (callbacks && callbacks.on_loading) {
-                this.handleEvent('api_loading', callbacks.on_loading, false);
-            }
-
-            // Call error callback
-            if (callbacks && callbacks.on_error) {
-                this.handleEvent('api_error', callbacks.on_error, {
-                    message: error.message,
-                    name: error.name
-                });
-            }
-
-            console.error('DreamWeb API Request Error:', error);
+            if (callbacks && callbacks.on_loading) this._sendEvent('api_loading', callbacks.on_loading, false);
+            if (callbacks && callbacks.on_error) this._sendEvent('api_error', callbacks.on_error, { message: error.message, name: error.name });
+            console.error('DreamWeb API Error:', error);
         }
     }
 
-    // Utility methods for parsing styles
+    // -------------------------------------------------------------------------
+    // Style utilities
+    // -------------------------------------------------------------------------
+
     parseSize(size) {
         if (typeof size === 'number') return `${size}px`;
         if (size === 'full') return '100%';
@@ -486,60 +610,32 @@ class DreamWebRuntime {
     }
 
     parseColor(color) {
-        // Named colors
         const colorMap = {
-            'primary': '#3b82f6',
-            'secondary': '#6b7280',
-            'success': '#10b981',
-            'danger': '#ef4444',
-            'warning': '#f59e0b',
-            'info': '#06b6d4',
-            'black': '#000000',
-            'white': '#ffffff',
-            'gray': '#6b7280',
-            'red': '#ef4444',
-            'blue': '#3b82f6',
-            'green': '#10b981',
-            'yellow': '#f59e0b',
-            'purple': '#8b5cf6',
-            'pink': '#ec4899',
+            'primary': '#3b82f6', 'secondary': '#6b7280', 'success': '#10b981',
+            'danger': '#ef4444', 'warning': '#f59e0b', 'info': '#06b6d4',
+            'black': '#000000', 'white': '#ffffff', 'gray': '#6b7280',
+            'red': '#ef4444', 'blue': '#3b82f6', 'green': '#10b981',
+            'yellow': '#f59e0b', 'purple': '#8b5cf6', 'pink': '#ec4899',
         };
-
-        // Gradients
         if (color && color.startsWith('gradient-')) {
             const parts = color.replace('gradient-', '').split('-');
-            if (parts.length === 2) {
+            if (parts.length >= 2) {
                 const from = colorMap[parts[0]] || parts[0];
-                const to = colorMap[parts[1]] || parts[1];
+                const to = colorMap[parts[parts.length - 1]] || parts[parts.length - 1];
                 return `linear-gradient(135deg, ${from}, ${to})`;
             }
         }
-
         return colorMap[color] || color;
     }
 
     parseFontSize(size) {
-        const sizeMap = {
-            'xs': '0.75rem',
-            'sm': '0.875rem',
-            'md': '1rem',
-            'lg': '1.125rem',
-            'xl': '1.25rem',
-            '2xl': '1.5rem',
-            '3xl': '1.875rem',
-            '4xl': '2.25rem',
-        };
-        return sizeMap[size] || (typeof size === 'number' ? `${size}px` : size);
+        const m = { xs: '0.75rem', sm: '0.875rem', md: '1rem', lg: '1.125rem', xl: '1.25rem', '2xl': '1.5rem', '3xl': '1.875rem', '4xl': '2.25rem' };
+        return m[size] || (typeof size === 'number' ? `${size}px` : size);
     }
 
     parseFontWeight(weight) {
-        const weightMap = {
-            'normal': '400',
-            'medium': '500',
-            'semibold': '600',
-            'bold': '700',
-        };
-        return weightMap[weight] || weight;
+        const m = { normal: '400', medium: '500', semibold: '600', bold: '700' };
+        return m[weight] || weight;
     }
 
     parseRounded(rounded) {
@@ -549,131 +645,61 @@ class DreamWebRuntime {
     }
 
     parseShadow(shadow) {
-        const shadowMap = {
-            'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            'none': 'none'
+        const m = {
+            sm: '0 1px 2px 0 rgba(0,0,0,0.05)',
+            md: '0 4px 6px -1px rgba(0,0,0,0.1)',
+            lg: '0 10px 15px -3px rgba(0,0,0,0.1)',
+            xl: '0 20px 25px -5px rgba(0,0,0,0.1)',
+            '2xl': '0 25px 50px -12px rgba(0,0,0,0.25)',
+            none: 'none',
         };
-        return shadowMap[shadow] || shadow;
+        return m[shadow] || shadow;
     }
 
     parseButtonSize(size) {
-        const sizeMap = {
-            'sm': '0.5rem 1rem',
-            'md': '0.625rem 1.25rem',
-            'lg': '0.75rem 1.5rem',
-            'xl': '1rem 2rem',
-        };
-        return sizeMap[size] || sizeMap['md'];
+        const m = { sm: '0.5rem 1rem', md: '0.625rem 1.25rem', lg: '0.75rem 1.5rem', xl: '1rem 2rem' };
+        return m[size] || m['md'];
     }
 
     parseButtonFontSize(size) {
-        const sizeMap = {
-            'sm': '0.875rem',
-            'md': '1rem',
-            'lg': '1.125rem',
-            'xl': '1.25rem',
-        };
-        return sizeMap[size] || sizeMap['md'];
+        const m = { sm: '0.875rem', md: '1rem', lg: '1.125rem', xl: '1.25rem' };
+        return m[size] || m['md'];
     }
 
     getButtonColors(color, variant) {
-        const baseColor = this.parseColor(color);
-
-        if (variant === 'outline') {
-            return {
-                background: 'transparent',
-                color: baseColor,
-                border: `2px solid ${baseColor}`
-            };
-        } else if (variant === 'ghost') {
-            return {
-                background: 'transparent',
-                color: baseColor,
-                border: 'none'
-            };
-        } else if (variant === 'link') {
-            return {
-                background: 'transparent',
-                color: baseColor,
-                border: 'none',
-                textDecoration: 'underline'
-            };
-        } else {
-            // solid
-            return {
-                background: baseColor,
-                color: '#ffffff',
-                border: 'none'
-            };
-        }
+        const base = this.parseColor(color);
+        if (variant === 'outline') return { background: 'transparent', color: base, border: `2px solid ${base}` };
+        if (variant === 'ghost') return { background: 'transparent', color: base, border: 'none' };
+        if (variant === 'link') return { background: 'transparent', color: base, border: 'none', textDecoration: 'underline' };
+        return { background: base, color: '#ffffff', border: 'none' };
     }
 
     applyBorder(element, border) {
         if (typeof border === 'number') {
             element.style.border = `${border}px solid #d1d5db`;
         } else if (typeof border === 'object') {
-            const width = border.width || 1;
-            const color = border.color || '#d1d5db';
-            const style = border.style || 'solid';
+            const { width = 1, color = '#d1d5db', style = 'solid' } = border;
             element.style.border = `${width}px ${style} ${color}`;
         }
     }
 
     mapAlign(align) {
-        const map = {
-            'start': 'flex-start',
-            'center': 'center',
-            'end': 'flex-end',
-            'stretch': 'stretch'
-        };
-        return map[align] || 'stretch';
+        const m = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch' };
+        return m[align] || 'stretch';
     }
 
     mapJustify(justify) {
-        const map = {
-            'start': 'flex-start',
-            'center': 'center',
-            'end': 'flex-end',
-            'between': 'space-between',
-            'around': 'space-around'
-        };
-        return map[justify] || 'flex-start';
-    }
-
-    // Hot reload support
-    setupHotReload() {
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            // Connect to WebSocket server (running on port + 1)
-            const wsPort = parseInt(window.location.port) + 1;
-            this.ws = new WebSocket(`ws://${window.location.hostname}:${wsPort}`);
-
-            this.ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === 'reload') {
-                    this.componentTree = data.tree;
-                    this.render();
-                    console.log('🔄 Hot reload applied');
-                }
-            };
-
-            this.ws.onclose = () => {
-                console.log('🔌 Dev server disconnected');
-                setTimeout(() => this.setupHotReload(), 1000);
-            };
-        }
+        const m = { start: 'flex-start', center: 'center', end: 'flex-end', between: 'space-between', around: 'space-around' };
+        return m[justify] || 'flex-start';
     }
 }
 
-// Initialize when DOM is ready
+// ---------------------------------------------------------------------------
+// Expose globally
+// ---------------------------------------------------------------------------
 if (typeof window !== 'undefined') {
     window.DreamWebRuntime = DreamWebRuntime;
 }
-
-// Export for Node.js
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = DreamWebRuntime;
 }
