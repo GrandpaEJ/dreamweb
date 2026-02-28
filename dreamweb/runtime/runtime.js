@@ -254,7 +254,7 @@ class DreamWebRuntime {
         const mergedProps = Object.assign({}, (oldVNode && oldVNode.props) || {}, changedProps);
 
         // Update textContent if it changed
-        if (changedProps.text !== undefined && (type === 'Text' || type === 'Heading')) {
+        if (changedProps.text !== undefined && (type === 'Text' || type === 'Heading' || type === 'Button')) {
             domNode.textContent = changedProps.text;
         }
 
