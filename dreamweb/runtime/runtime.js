@@ -181,7 +181,7 @@ class DreamWebRuntime {
             } else if (patch.type === 'UPDATE_PROPS') {
                 this._applyPropUpdates(domNode, oldNode, patch.props);
             } else if (patch.type === 'UPDATE_EVENTS') {
-                this._reattachEvents(domNode, patch.events);
+                domNode = this._reattachEvents(domNode, patch.events);
             } else if (patch.type === 'SET_CHILDREN') {
                 this._reconcileChildren(domNode, patch.oldChildren, patch.newChildren);
             }
@@ -252,6 +252,12 @@ class DreamWebRuntime {
         // Re-apply all styles by rebuilding from scratch on the node type
         const type = oldVNode && oldVNode.type;
         const mergedProps = Object.assign({}, (oldVNode && oldVNode.props) || {}, changedProps);
+
+        // Update textContent if it changed
+        if (changedProps.text !== undefined && (type === 'Text' || type === 'Heading')) {
+            domNode.textContent = changedProps.text;
+        }
+
         switch (type) {
             case 'Container': this.applyContainerStyles(domNode, mergedProps); break;
             case 'Row': this.applyRowStyles(domNode, mergedProps); break;
@@ -263,8 +269,11 @@ class DreamWebRuntime {
     _reattachEvents(domNode, events) {
         // Clone node to remove all existing listeners, then re-attach
         const clone = domNode.cloneNode(true);
-        domNode.parentNode && domNode.parentNode.replaceChild(clone, domNode);
+        if (domNode.parentNode) {
+            domNode.parentNode.replaceChild(clone, domNode);
+        }
         this.attachEvents(clone, events);
+        return clone;
     }
 
     // -------------------------------------------------------------------------
